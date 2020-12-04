@@ -42,7 +42,7 @@ class Network:
                     weight.append([float(num) for num in matrixLine.split(" ")])
                 self.weights[layer] = np.array(weight, dtype=float)
 
-            # 创建每一层的bias矩阵
+            # 创建每一层的bias矩阵，暂时为空
             for layer in range(self.layerNum - 1):
                 self.biases.append(np.empty([self.eachLayerNums[layer + 1]], float))
 

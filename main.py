@@ -51,25 +51,53 @@ def addNetworkConstraints(m: Model, net: Network, varIndex = [], reluIndex= []):
                 tempIter = []
                 for i in range(lastLayerNodeNum):
                     tempIter.append(varIndex[lastLayerIndex][i] * net.weights[lastLayerIndex][i][nodeIndex])
-                m += (xsum(i for i in tempIter) + M * (1 - reluIndex[currentLayerIndex][nodeIndex]) >= node)
+                m += ((xsum(i for i in tempIter) + M * (1 - reluIndex[currentLayerIndex][nodeIndex])) >= node)
     return varIndex, reluIndex
 
 
-def addManualConstraints(m: Model, net: Network, varIndex, reluIndex):
-    pass
+def addManualConstraints(m: Model, net: Network, varIndex, reluIndex, path=""):
+    inputConstraints, outputConstraints = loadProperty(path)
+    lastLayerIndex = net.layerNum - 1
+    for inputConstraint in inputConstraints:
+        varIdx        = inputConstraint[0]
+        equationType    = inputConstraint[1]
+        scalar          = inputConstraint[2]
+        if equationType == 0:
+            m += varIndex[0][varIdx] == scalar
+        elif equationType == 1:
+            m += varIndex[0][varIdx] <= scalar
+        elif equationType == 2:
+            m += varIndex[0][varIdx] >= scalar
+    for outputConstraint in outputConstraints:
+        varIdx          = outputConstraint[0]
+        equationType    = outputConstraint[1]
+        scalar          = outputConstraint[2]
+        if equationType == 0:
+            m += varIndex[lastLayerIndex][varIdx] == scalar
+        elif equationType == 1:
+            m += varIndex[lastLayerIndex][varIdx] <= scalar
+        elif equationType == 2:
+            m += varIndex[lastLayerIndex][varIdx] >= scalar
 
 if __name__ == '__main__':
     m = Model()
-    network = loadNetwork("./input.txt")
     generalVar, reluVar = [], []
+
+    network = loadNetwork("./input.txt")
     addNetworkConstraints(m, network, generalVar, reluVar)
-    # addManualConstraints(m, network, generalVar, reluVar)
+    addManualConstraints(m, network, generalVar, reluVar, "./property.txt")
+
     m.optimize()
+
     if m.num_solutions:
         stdout.write("-----------------solutation found!-----------------\n")
         for i in range(network.layerNum):
             for j, node in enumerate(generalVar[i]):
-                print("x_{}{}:{}\n".format(i, j, node.x))
+                print("x_{}{}:{}".format(i, j, node.x))
+
+        for i in range(network.layerNum):
+            for j, node in enumerate(reluVar[i]):
+                print("&_{}{}:{}".format(i, j, node.x))
         stdout.write("-----------------solutation found!-----------------\n")
     else:
         print("-----------------solutation not found!-----------------\n")
