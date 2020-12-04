@@ -18,7 +18,7 @@ def addNetworkConstraints(m: Model, net: Network, varIndex = [], reluIndex= []):
         else:
             reluIndex.append([m.add_var(var_type=BINARY) for i in range(net.eachLayerNums[layer])])
 
-    # 对于每一个节点添加不含ReLU节点的线性约束，公式1和公式2
+    # 对于每一个节点添加网络级线性约束
     for currentLayerIndex, currentLayer in enumerate(varIndex):
         # 处理当前层currentLayerIndex的全部节点
         lastLayerIndex = currentLayerIndex - 1
@@ -28,30 +28,24 @@ def addNetworkConstraints(m: Model, net: Network, varIndex = [], reluIndex= []):
         else:
             for nodeIndex, node in enumerate(currentLayer):
                 # node is a var
+                # 公式1
                 tempIter = []
                 for i in range(lastLayerNodeNum):
                     tempIter.append(varIndex[lastLayerIndex][i] * net.weights[lastLayerIndex][i][nodeIndex])
-                # 公式1
                 m += xsum(i for i in tempIter) <= node
-                # 公式3
-                m += node >= 0
 
-    # 对于每一个节点添加ReLU线性约束，公式2和公式4
-    for currentLayerIndex, currentLayer in enumerate(varIndex):
-        # 处理当前层currentLayerIndex的全部节点
-        lastLayerIndex = currentLayerIndex - 1
-        lastLayerNodeNum = net.eachLayerNums[lastLayerIndex]
-        if currentLayerIndex == 0:
-            continue
-        else:
-            for nodeIndex, node in enumerate(currentLayer):
-                # 公式4
-                m += (node <= M * reluIndex[currentLayerIndex][nodeIndex])
                 # 公式2
                 tempIter = []
                 for i in range(lastLayerNodeNum):
                     tempIter.append(varIndex[lastLayerIndex][i] * net.weights[lastLayerIndex][i][nodeIndex])
                 m += ((xsum(i for i in tempIter) + M * (1 - reluIndex[currentLayerIndex][nodeIndex])) >= node)
+
+                # 公式3
+                m += node >= 0
+
+                # 公式4
+                m += (node <= M * reluIndex[currentLayerIndex][nodeIndex])
+
     return varIndex, reluIndex
 
 
