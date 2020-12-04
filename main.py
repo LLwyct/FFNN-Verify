@@ -23,6 +23,8 @@ def addNetworkConstraints(m: Model, net: Network, varIndex = [], reluIndex= []):
         # 处理当前层currentLayerIndex的全部节点
         lastLayerIndex = currentLayerIndex - 1
         lastLayerNodeNum = net.eachLayerNums[lastLayerIndex]
+        # 先取出来bias，防止频繁访问net对象
+        bias = net.biases[lastLayerIndex]
         if currentLayerIndex == 0:
             continue
         else:
@@ -32,13 +34,13 @@ def addNetworkConstraints(m: Model, net: Network, varIndex = [], reluIndex= []):
                 tempIter = []
                 for i in range(lastLayerNodeNum):
                     tempIter.append(varIndex[lastLayerIndex][i] * net.weights[lastLayerIndex][i][nodeIndex])
-                m += xsum(i for i in tempIter) <= node
+                m += (xsum(i for i in tempIter) + bias[nodeIndex][0]) <= node
 
                 # 公式2
                 tempIter = []
                 for i in range(lastLayerNodeNum):
                     tempIter.append(varIndex[lastLayerIndex][i] * net.weights[lastLayerIndex][i][nodeIndex])
-                m += ((xsum(i for i in tempIter) + M * (1 - reluIndex[currentLayerIndex][nodeIndex])) >= node)
+                m += (xsum(i for i in tempIter) + bias[nodeIndex][0]) + M * (1 - reluIndex[currentLayerIndex][nodeIndex]) >= node
 
                 # 公式3
                 m += node >= 0
