@@ -55,7 +55,7 @@ def addManualConstraints(m: Model, net: Network, varIndex, reluIndex, path=""):
     inputConstraints, outputConstraints = loadProperty(path)
     lastLayerIndex = net.layerNum - 1
     for inputConstraint in inputConstraints:
-        varIdx        = inputConstraint[0]
+        varIdx          = inputConstraint[0]
         equationType    = inputConstraint[1]
         scalar          = inputConstraint[2]
         if equationType == 0:
