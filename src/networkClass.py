@@ -3,17 +3,30 @@ import numpy as np
 
 class Network:
     def __init__(self, path):
-        self.layerNum = 0
-        self.path = path
-        self.weights = None
-        self.eachLayerNums = None
-        self.biases = None
-        self.read(path)
+        # 网络文件路径
+        self.networkFilePath: str = path
 
-    def read(self, path):
+        # 网络层数，包括输入输出层
+        self.layerNum: int = 0
+
+        # 每一层的节点数
+        self.eachLayerNums: list = None
+
+        '''
+        weight矩阵，长度为layerNum - 1
+        当计算第i层第j个节点的值时，使用向量x_i-1 * weight[i-1][]
+        '''
+        self.weights: list = None
+
+        # bias矩阵，长度也为layerNum - 1
+        self.biases = None
+
+        self.read()
+
+    def read(self):
         self.weights = []
         self.biases = []
-        with open(self.path, "r") as f:
+        with open(self.networkFilePath, "r") as f:
             # 读取网络层数
             line = f.readline()
             if line == "":
@@ -56,9 +69,3 @@ class Network:
                         raise Exception("IOError")
                     bias.append([float(num) for num in biasLine.split(" ")])
                 self.biases[layer] = np.array(bias, dtype=float)
-
-    def log(self):
-        print(
-            self.layerNum + "\n"
-            + self.eachLayerNums
-        )
