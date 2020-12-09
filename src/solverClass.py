@@ -14,8 +14,7 @@ class Solver:
         self.addNetworkConstraints(
             self.m, self.net, self.indexToVar, self.indexToReluvar)
         # 初始化人工约束
-        self.addManualConstraints(
-            self.m, self.net, self.indexToVar, self.propertyFile)
+        self.addManualConstraints()
 
     @staticmethod
     def addNetworkConstraints(self, m: Model, net: Network, indexToVar: list, indexToReluvar: list):
