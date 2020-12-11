@@ -1,7 +1,7 @@
 from mip import Model, BINARY, INTEGER, xsum
 from networkClass import Network
 
-M = 1000
+M = 1000000
 
 class Solver:
     def __init__(self, network: Network, propertyFile: str):

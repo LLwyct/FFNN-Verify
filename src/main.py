@@ -4,7 +4,7 @@ from mip import minimize, xsum
 
 
 if __name__ == "__main__":
-    network = Network("../example/ACASXU_experimental_v2a_1_7.nnet")
+    network = Network("../example/ACASXU_experimental_v2a_1_3.nnet")
     solver = Solver(network, "../example/property_3.txt")
     solver.m += solver.indexToVar[network.layerNum - 1][0] <= solver.indexToVar[network.layerNum - 1][1]
     solver.m += solver.indexToVar[network.layerNum - 1][0] <= solver.indexToVar[network.layerNum - 1][2]
