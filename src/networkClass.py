@@ -42,30 +42,30 @@ class Network:
 
             # 创建每一层的weight矩阵，暂时为空
             for layer in range(self.layerNum - 1):
-                self.weights.append(np.empty([self.eachLayerNums[layer], self.eachLayerNums[layer + 1]], float))
+                # 如果第0层是5个节点，第1层是50个节点，那么weights[0]应该是一个50*5的矩阵，注意这里是反过来的
+                self.weights.append(np.empty([self.eachLayerNums[layer+1], self.eachLayerNums[layer]], float))
 
-            # 读取权重
+            # 创建每一层的bias矩阵，暂时为空
             for layer in range(self.layerNum - 1):
+                self.biases.append(np.empty([self.eachLayerNums[layer + 1]], float))
+
+            for layer in range(self.layerNum - 1):
+                # 读取权重
                 weightMatrixRowNum = self.weights[layer].shape[0]
                 weight = []
                 for row in range(weightMatrixRowNum):
                     matrixLine = f.readline()
                     if matrixLine == "":
                         raise Exception("IOError")
-                    weight.append([float(num) for num in matrixLine.split(" ")])
+                    weight.append([float(num) for num in matrixLine.split(" ") if num != "\n"])
                 self.weights[layer] = np.array(weight, dtype=float)
 
-            # 创建每一层的bias矩阵，暂时为空
-            for layer in range(self.layerNum - 1):
-                self.biases.append(np.empty([self.eachLayerNums[layer + 1]], float))
-
-            # 读取bias
-            for layer in range(self.layerNum - 1):
-                biasMatrixRowNum = self.weights[layer].shape[1]
+                # 读取bias
+                biasMatrixRowNum = self.weights[layer].shape[0]
                 bias = []
                 for row in range(biasMatrixRowNum):
                     biasLine = f.readline()
                     if biasLine == "":
                         raise Exception("IOError")
-                    bias.append([float(num) for num in biasLine.split(" ")])
+                    bias.append(float(biasLine))
                 self.biases[layer] = np.array(bias, dtype=float)

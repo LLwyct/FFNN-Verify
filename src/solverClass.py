@@ -9,15 +9,23 @@ class Solver:
         self.net = network
         self.indexToVar = []
         self.indexToReluvar = []
+        self.indexToEpsilon = []
         self.propertyFile = propertyFile
+        self.initEpsilon()
         # 初始化网络级约束
-        self.addNetworkConstraints(
-            self.m, self.net, self.indexToVar, self.indexToReluvar)
+        self.addNetworkConstraints(self.m, self.net, self.indexToVar, self.indexToReluvar, self.indexToEpsilon)
         # 初始化人工约束
         self.addManualConstraints()
 
+    def initEpsilon(self):
+        for i in range(self.net.layerNum):
+            if i == 0:
+                self.indexToEpsilon.append([])
+            else:
+                self.indexToEpsilon.append([self.m.add_var() for i in range(self.net.eachLayerNums[i])])
+
     @staticmethod
-    def addNetworkConstraints(self, m: Model, net: Network, indexToVar: list, indexToReluvar: list):
+    def addNetworkConstraints(m: Model, net: Network, indexToVar: list, indexToReluvar: list, indexToEpsilon):
         # 添加网络节点变量
         for layer in range(net.layerNum):
             # 添加实数变量
@@ -36,6 +44,8 @@ class Solver:
 
         # 对于每一个节点添加网络级线性约束
         for curLayerIdx, curLayer in enumerate(indexToVar):
+            if curLayerIdx == 0:
+                continue
             # 处理当前层curLayer的全部节点
             lastLayerIdx = curLayerIdx - 1
             lastLayerNodeNum = net.eachLayerNums[lastLayerIdx]
@@ -44,35 +54,32 @@ class Solver:
             # 先取出来bias，防止频繁访问net对象
             bias = net.biases[lastLayerIdx]
             weight = net.weights[lastLayerIdx]
-            if curLayerIdx == 0:
-                continue
-            else:
-                for curNodeIdx, curNode in enumerate(curLayer):
-                    # node is a var
-                    # 公式1
-                    tempIter = []
-                    for idx, varnodeInLastLayer in enumerate(indexToVar[lastLayerIdx]):
-                        tempIter.append(
-                            varnodeInLastLayer *
-                            weight[idx][curNodeIdx])
-                    m += (xsum(i for i in tempIter) +
-                          bias[curNodeIdx][0]) <= curNode
+            for curNodeIdx, curNode in enumerate(curLayer):
+                # node is a var
+                # 公式1
+                tempIter = []
+                for idx, varnodeInLastLayer in enumerate(indexToVar[lastLayerIdx]):
+                    tempIter.append(
+                        varnodeInLastLayer *
+                        weight[curNodeIdx][idx])
+                m += (xsum(i for i in tempIter) +
+                        bias[curNodeIdx] - indexToEpsilon[curLayerIdx][curNodeIdx]) <= curNode
 
-                    # 公式2
-                    tempIter = []
-                    for idx, varnodeInLastLayer in enumerate(indexToVar[lastLayerIdx]):
-                        tempIter.append(
-                            varnodeInLastLayer *
-                            weight[idx][curNodeIdx])
-                    m += (xsum(i for i in tempIter) + bias[curNodeIdx][0]) + M * (
-                        1 - indexToReluvar[curLayerIdx][curNodeIdx]) >= curNode
+                # 公式2
+                tempIter = []
+                for idx, varnodeInLastLayer in enumerate(indexToVar[lastLayerIdx]):
+                    tempIter.append(
+                        varnodeInLastLayer *
+                        weight[curNodeIdx][idx])
+                m += (xsum(i for i in tempIter) + bias[curNodeIdx]) + M * (
+                    1 - indexToReluvar[curLayerIdx][curNodeIdx]) + indexToEpsilon[curLayerIdx][curNodeIdx] >= curNode
 
-                    # 公式3
-                    m += curNode >= 0
+                # 公式3
+                m += curNode >= 0
 
-                    # 公式4
-                    m += (curNode <= M *
-                          indexToReluvar[curLayerIdx][curNodeIdx])
+                # 公式4
+                m += (curNode <= M *
+                    indexToReluvar[curLayerIdx][curNodeIdx])
 
     def addManualConstraints(self):
         # 添加输入层输出层上的约束
