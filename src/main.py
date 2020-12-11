@@ -16,7 +16,8 @@ if __name__ == "__main__":
             continue
         for j in range(network.eachLayerNums[i]):
             epslions.append(solver.indexToEpsilon[i][j])
-
+            solver.m += solver.indexToEpsilon[i][j] >= 0
+    solver.m += (xsum(epslion for epslion in epslions) <= 1)
     solver.m.objective = minimize(xsum(epslion for epslion in epslions))
     solver.solve()
     print(solver.m.objective_value)
