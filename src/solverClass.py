@@ -1,13 +1,14 @@
 from mip import Model, BINARY, INTEGER, xsum
 from networkClass import Network
 import numpy as np
-
+import gurobipy as gp
+from gurobipy import GRB
 
 M = 100000
 
 class Solver:
     def __init__(self, network: Network, propertyFile: str):
-        self.m = Model()
+        self.m = gp.Model("ffnn")
         self.net = network
         self.indexToVar = []
         self.indexToReluvar = []
@@ -24,14 +25,14 @@ class Solver:
             if i == 0:
                 self.indexToEpsilon.append([])
             else:
-                self.indexToEpsilon.append([self.m.add_var(lb=0, ub=0.000001) for i in range(self.net.eachLayerNums[i])])
+                self.indexToEpsilon.append([self.m.addVar(lb=0, ub=0.000001) for i in range(self.net.eachLayerNums[i])])
 
     @staticmethod
-    def addNetworkConstraints(m: Model, net: Network, indexToVar: list, indexToReluvar: list, indexToEpsilon):
+    def addNetworkConstraints(m: gp.Model, net: Network, indexToVar: list, indexToReluvar: list, indexToEpsilon):
         # 添加网络节点变量
         for layer in range(net.layerNum):
             # 添加实数变量
-            indexToVar.append([m.add_var()
+            indexToVar.append([m.addVar()
                                for i in range(net.eachLayerNums[layer])])
 
         # 添加relu节点变量，是二进制变量，0代表非激活y=0，1代表激活y=x
@@ -41,7 +42,7 @@ class Solver:
                 indexToReluvar.append([])
             else:
                 # 输出层默认加relu激活函数
-                indexToReluvar.append([m.add_var(var_type=BINARY)
+                indexToReluvar.append([m.addVar(vtype=GRB.BINARY)
                                        for i in range(net.eachLayerNums[layer])])
 
         # 对于每一个节点添加网络级线性约束
@@ -63,16 +64,20 @@ class Solver:
             for curNodeIdx, curNode in enumerate(curLayer):
                 # node is a var
                 # 公式1
-                m += wx_add_b[curNodeIdx] - indexToEpsilon[curLayerIdx][curNodeIdx] <= curNode
+                # m += wx_add_b[curNodeIdx] - indexToEpsilon[curLayerIdx][curNodeIdx] <= curNode
+                m.addConstr(wx_add_b[curNodeIdx] - indexToEpsilon[curLayerIdx][curNodeIdx] <= curNode)
 
                 # 公式2
-                m += wx_add_b[curNodeIdx] + M*(1 - indexToReluvar[curLayerIdx][curNodeIdx]) + indexToEpsilon[curLayerIdx][curNodeIdx] >= curNode
+                # m += wx_add_b[curNodeIdx] + M*(1 - indexToReluvar[curLayerIdx][curNodeIdx]) + indexToEpsilon[curLayerIdx][curNodeIdx] >= curNode
+                m.addConstr(wx_add_b[curNodeIdx] + M*(1 - indexToReluvar[curLayerIdx][curNodeIdx]) + indexToEpsilon[curLayerIdx][curNodeIdx] >= curNode)
 
                 # 公式3
-                m += curNode >= 0
+                # m += curNode >= 0
+                m.addConstr(curNode >= 0)
 
                 # 公式4
-                m += (curNode <= M * indexToReluvar[curLayerIdx][curNodeIdx])
+                # m += (curNode <= M * indexToReluvar[curLayerIdx][curNodeIdx])
+                m.addConstr(curNode <= M * indexToReluvar[curLayerIdx][curNodeIdx])
 
     def addManualConstraints(self):
         # 添加输入层输出层上的约束
@@ -83,21 +88,27 @@ class Solver:
             equationType    = inputConstraint[1]
             scalar          = inputConstraint[2]
             if equationType == 0:
-                self.m += self.indexToVar[0][varIdx] == scalar
+                # self.m += self.indexToVar[0][varIdx] == scalar
+                self.m.addConstr(self.indexToVar[0][varIdx] == scalar)
             elif equationType == 1:
-                self.m += self.indexToVar[0][varIdx] <= scalar
+                # self.m += self.indexToVar[0][varIdx] <= scalar
+                self.m.addConstr(self.indexToVar[0][varIdx] <= scalar)
             elif equationType == 2:
-                self.m += self.indexToVar[0][varIdx] >= scalar
+                # self.m += self.indexToVar[0][varIdx] >= scalar
+                self.m.addConstr(self.indexToVar[0][varIdx] >= scalar)
         for outputConstraint in outputConstraints:
             varIdx          = outputConstraint[0]
             equationType    = outputConstraint[1]
             scalar          = outputConstraint[2]
             if equationType == 0:
-                self.m += self.indexToVar[finalLayerIndex][varIdx] == scalar
+                # self.m += self.indexToVar[finalLayerIndex][varIdx] == scalar
+                self.m.addConstr(self.indexToVar[finalLayerIndex][varIdx] == scalar)
             elif equationType == 1:
-                self.m += self.indexToVar[finalLayerIndex][varIdx] <= scalar
+                # self.m += self.indexToVar[finalLayerIndex][varIdx] <= scalar
+                self.m.addConstr(self.indexToVar[finalLayerIndex][varIdx] <= scalar)
             elif equationType == 2:
-                self.m += self.indexToVar[finalLayerIndex][varIdx] >= scalar
+                # self.m += self.indexToVar[finalLayerIndex][varIdx] >= scalar
+                self.m.addConstr(self.indexToVar[finalLayerIndex][varIdx] >= scalar)
 
     def loadProperty(self):
         inputConstraints = []
@@ -132,17 +143,18 @@ class Solver:
 
     def solve(self):
         self.m.optimize()
-        if self.m.num_solutions:
-            print("-----------------solutation found!-----------------")
-            for i in range(self.net.layerNum):
-                for j, node in enumerate(self.indexToVar[i]):
-                    print("x_{}{}:{}".format(i, j, node.x))
-
-            for i in range(self.net.layerNum):
-                for j, node in enumerate(self.indexToReluvar[i]):
-                    print("&_{}{}:{}".format(i, j, node.x))
-            print("-----------------solutation found!-----------------")
-        else:
-            print("-----------------solutation not found!-----------------")
-            print("unsat")
-            print("-----------------solutation not found!-----------------")
+        # if self.m.num_solutions:
+        #     print("-----------------solutation found!-----------------")
+        #     for i in range(self.net.layerNum):
+        #         for j, node in enumerate(self.indexToVar[i]):
+        #             print("x_{}{}:{}".format(i, j, node.x))
+        #
+        #     for i in range(self.net.layerNum):
+        #         for j, node in enumerate(self.indexToReluvar[i]):
+        #             print("&_{}{}:{}".format(i, j, node.x))
+        #     print("-----------------solutation found!-----------------")
+        # else:
+        #     print("-----------------solutation not found!-----------------")
+        #     print("unsat")
+        #     print("-----------------solutation not found!-----------------")
+        print('Obj: %g' % self.m.objVal)
