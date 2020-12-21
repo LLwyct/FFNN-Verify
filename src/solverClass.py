@@ -1,4 +1,4 @@
-from mip import Model, BINARY, INTEGER, xsum
+# from mip import Model, BINARY, INTEGER, xsum
 from networkClass import Network
 import numpy as np
 import gurobipy as gp
@@ -16,9 +16,10 @@ class Solver:
         self.propertyFile = propertyFile
         self.initEpsilonVar()
         # 初始化网络级约束
-        self.addNetworkConstraints(self.m, self.net, self.indexToVar, self.indexToReluvar, self.indexToEpsilon)
+        self.addNetworkConstraints()
         # 初始化人工约束
         self.addManualConstraints()
+        pass
 
     def initEpsilonVar(self):
         for i in range(self.net.layerNum):
@@ -27,57 +28,58 @@ class Solver:
             else:
                 self.indexToEpsilon.append([self.m.addVar(lb=0, ub=0.000001) for i in range(self.net.eachLayerNums[i])])
 
-    @staticmethod
-    def addNetworkConstraints(m: gp.Model, net: Network, indexToVar: list, indexToReluvar: list, indexToEpsilon):
+    def addNetworkConstraints(self):
         # 添加网络节点变量
-        for layer in range(net.layerNum):
+        for layer in range(self.net.layerNum):
             # 添加实数变量
-            indexToVar.append([m.addVar()
-                               for i in range(net.eachLayerNums[layer])])
+            self.indexToVar.append([self.m.addVar()
+                               for i in range(self.net.eachLayerNums[layer])])
 
         # 添加relu节点变量，是二进制变量，0代表非激活y=0，1代表激活y=x
-        for layer in range(net.layerNum):
+        for layer in range(self.net.layerNum):
             # 第一层input不添加relu节点
             if layer == 0:
-                indexToReluvar.append([])
+                self.indexToReluvar.append([])
             else:
                 # 输出层默认加relu激活函数
-                indexToReluvar.append([m.addVar(vtype=GRB.BINARY)
-                                       for i in range(net.eachLayerNums[layer])])
+                self.indexToReluvar.append([self.m.addVar(vtype=GRB.BINARY)
+                                       for i in range(self.net.eachLayerNums[layer])])
 
         # 对于每一个节点添加网络级线性约束
         # 遍历层
-        for curLayerIdx, curLayer in enumerate(indexToVar):
+        for curLayerIdx, curLayer in enumerate(self.indexToVar):
             if curLayerIdx == 0:
                 continue
             # 处理当前层curLayer的全部节点
             lastLayerIdx = curLayerIdx - 1
-            lastLayerNodeNum = net.eachLayerNums[lastLayerIdx]
-            if lastLayerNodeNum != len(indexToVar[lastLayerIdx]):
+            lastLayerNodeNum = self.net.eachLayerNums[lastLayerIdx]
+            if lastLayerNodeNum != len(self.indexToVar[lastLayerIdx]):
                 raise
             # 先取出来bias，防止频繁访问net对象
-            bias = net.biases[lastLayerIdx]
-            weight = net.weights[lastLayerIdx]
-            ans = np.dot(weight, indexToVar[lastLayerIdx])
+            bias = self.net.biases[lastLayerIdx]
+            weight = self.net.weights[lastLayerIdx]
+            ans = np.dot(weight, self.indexToVar[lastLayerIdx])
             wx_add_b = ans + bias
             # 遍历层内的节点
             for curNodeIdx, curNode in enumerate(curLayer):
                 # node is a var
                 # 公式1
                 # m += wx_add_b[curNodeIdx] - indexToEpsilon[curLayerIdx][curNodeIdx] <= curNode
-                m.addConstr(wx_add_b[curNodeIdx] - indexToEpsilon[curLayerIdx][curNodeIdx] <= curNode)
+                # m.addConstr(wx_add_b[curNodeIdx] - self.indexToEpsilon[curLayerIdx][curNodeIdx] <= curNode)
+                self.m.addConstr(wx_add_b[curNodeIdx] <= curNode)
 
                 # 公式2
                 # m += wx_add_b[curNodeIdx] + M*(1 - indexToReluvar[curLayerIdx][curNodeIdx]) + indexToEpsilon[curLayerIdx][curNodeIdx] >= curNode
-                m.addConstr(wx_add_b[curNodeIdx] + M*(1 - indexToReluvar[curLayerIdx][curNodeIdx]) + indexToEpsilon[curLayerIdx][curNodeIdx] >= curNode)
+                # self.m.addConstr(wx_add_b[curNodeIdx] + M*(1 - self.indexToReluvar[curLayerIdx][curNodeIdx]) + self.indexToEpsilon[curLayerIdx][curNodeIdx] >= curNode)
+                self.m.addConstr(wx_add_b[curNodeIdx] + M * (1 - self.indexToReluvar[curLayerIdx][curNodeIdx]) >= curNode)
 
                 # 公式3
                 # m += curNode >= 0
-                m.addConstr(curNode >= 0)
+                self.m.addConstr(curNode >= 0)
 
                 # 公式4
                 # m += (curNode <= M * indexToReluvar[curLayerIdx][curNodeIdx])
-                m.addConstr(curNode <= M * indexToReluvar[curLayerIdx][curNodeIdx])
+                self.m.addConstr(curNode <= M * self.indexToReluvar[curLayerIdx][curNodeIdx])
 
     def addManualConstraints(self):
         # 添加输入层输出层上的约束
@@ -90,12 +92,16 @@ class Solver:
             if equationType == 0:
                 # self.m += self.indexToVar[0][varIdx] == scalar
                 self.m.addConstr(self.indexToVar[0][varIdx] == scalar)
+                self.net.bounds[0][varIdx].lb = scalar
+                self.net.bounds[0][varIdx].ub = scalar
             elif equationType == 1:
                 # self.m += self.indexToVar[0][varIdx] <= scalar
                 self.m.addConstr(self.indexToVar[0][varIdx] <= scalar)
+                self.net.bounds[0][varIdx].ub = scalar
             elif equationType == 2:
                 # self.m += self.indexToVar[0][varIdx] >= scalar
                 self.m.addConstr(self.indexToVar[0][varIdx] >= scalar)
+                self.net.bounds[0][varIdx].lb = scalar
         for outputConstraint in outputConstraints:
             varIdx          = outputConstraint[0]
             equationType    = outputConstraint[1]

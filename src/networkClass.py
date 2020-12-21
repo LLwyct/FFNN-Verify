@@ -3,10 +3,10 @@ from keras.models import load_model
 
 
 class Network:
-    def __init__(self, path="", h5=False):
+    def __init__(self, path="", type="h5"):
         # 网络文件路径
         self.networkFilePath: str = path
-
+        self.type = type
         # 网络层数，包括输入输出层
         self.layerNum: int = -1
 
@@ -21,12 +21,27 @@ class Network:
 
         # bias矩阵，长度也为layerNum - 1
         self.biases:list = []
-        if h5 == False and path != "":
+
+        self.bounds = []
+
+        self.init()
+
+
+    def init(self):
+        if self.type == "nnet" and self.networkFilePath != "":
             self.read()
-        elif h5 == True and path != "":
+        elif self.type == "h5" and self.networkFilePath != "":
             self.readFromH5()
         else:
             raise IOError
+        self.initBounds()
+
+    def initBounds(self):
+        for i in range(self.layerNum):
+            self.bounds.append([])
+            for j in range(self.eachLayerNums[i]):
+                self.bounds[i].append(Node())
+        pass
 
     def read(self):
         self.weights = []
@@ -85,3 +100,14 @@ class Network:
             self.weights.append(net_model.layers[i].get_weights()[0].T)
             self.biases.append(net_model.layers[i].get_weights()[1])
             self.eachLayerNums.append(len(net_model.layers[i].get_weights()[1]))
+
+    def intervalPropagate(self):
+        for i in range(1, self.layerNum):
+            pass
+        pass
+
+
+class Node:
+    def __init__(self):
+        self.lb = None
+        self.ub = None

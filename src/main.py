@@ -1,28 +1,25 @@
+import os, sys
+
 from networkClass import Network
 from solverClass import Solver
-from mip import minimize, xsum
-from gurobipy import quicksum, GRB
-import gurobipy as gp
+from gurobipy import GRB
+
 
 if __name__ == "__main__":
-    h5path = "C:/Users/liwenchi/Documents/GitHub/FFNN-Verify/resources/Acas/acas_1_1.h5"
-    network = Network(h5path, h5=True)
-    solver = Solver(network, "../resources/property_3.txt")
-    # solver.m += solver.indexToVar[network.layerNum - 1][0] <= solver.indexToVar[network.layerNum - 1][1]
-    # solver.m += solver.indexToVar[network.layerNum - 1][0] <= solver.indexToVar[network.layerNum - 1][2]
-    # solver.m += solver.indexToVar[network.layerNum - 1][0] <= solver.indexToVar[network.layerNum - 1][3]
-    # solver.m += solver.indexToVar[network.layerNum - 1][0] <= solver.indexToVar[network.layerNum - 1][4]
+    networkFileName = "acas_1_1.h5"
+    propertyFileName = "property_3.txt"
+    networkFilePath = os.path.abspath(os.path.join("../resources/Acas", networkFileName))
+    propertyFilePath = os.path.abspath(os.path.join("../resources", propertyFileName))
+    network = Network(networkFilePath, type="h5")
+    solver = Solver(network, propertyFilePath)
+    network.intervalPropagate()
+    # 手动管理输出约束
     solver.m.addConstr(solver.indexToVar[network.layerNum - 1][0] <= solver.indexToVar[network.layerNum - 1][1])
     solver.m.addConstr(solver.indexToVar[network.layerNum - 1][0] <= solver.indexToVar[network.layerNum - 1][2])
     solver.m.addConstr(solver.indexToVar[network.layerNum - 1][0] <= solver.indexToVar[network.layerNum - 1][3])
     solver.m.addConstr(solver.indexToVar[network.layerNum - 1][0] <= solver.indexToVar[network.layerNum - 1][4])
-
-    epslions = []
-    for i in range(network.layerNum):
-        if i == 0:
-            continue
-        for j in range(network.eachLayerNums[i]):
-            epslions.append(solver.indexToEpsilon[i][j])
-    solver.m.setObjective(quicksum(epslion for epslion in epslions), GRB.MAXIMIZE)
+    '''
+    gurobi已经提供了关于容忍误差，所以此处不需要考虑舍入问题
+    '''
+    solver.m.setObjective(0, GRB.MAXIMIZE)
     solver.solve()
-    # print(solver.m.objVal)
