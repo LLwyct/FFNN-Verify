@@ -10,9 +10,9 @@ if __name__ == "__main__":
     propertyFileName = "property_3.txt"
     networkFilePath = os.path.abspath(os.path.join("../resources/Acas", networkFileName))
     propertyFilePath = os.path.abspath(os.path.join("../resources", propertyFileName))
-    network = Network(networkFilePath, type="h5")
-    solver = Solver(network, propertyFilePath)
+    network = Network(networkFilePath, type="h5", propertyReadyToVerify=3)
     network.intervalPropagate()
+    solver = Solver(network, propertyFilePath)
     # 手动管理输出约束
     solver.m.addConstr(solver.indexToVar[network.layerNum - 1][0] <= solver.indexToVar[network.layerNum - 1][1])
     solver.m.addConstr(solver.indexToVar[network.layerNum - 1][0] <= solver.indexToVar[network.layerNum - 1][2])

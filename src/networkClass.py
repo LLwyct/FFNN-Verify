@@ -1,18 +1,22 @@
 import numpy as np
 from keras.models import load_model
+import keras
+from Layer import Layer
+from property import getNormaliseInput
 
 
 class Network:
-    def __init__(self, path="", type="h5"):
+    def __init__(self, path="", type="h5", propertyReadyToVerify=0):
         # 网络文件路径
         self.networkFilePath: str = path
         self.type = type
+        self.propertyIndexReadyToVerify = propertyReadyToVerify
         # 网络层数，包括输入输出层
         self.layerNum: int = -1
-
         # 每一层的节点数
         self.eachLayerNums: list = []
-
+        self.inputLmodel = Layer()
+        self.lmodel = []
         '''
         weight矩阵，长度为layerNum - 1
         当计算第i层第j个节点的值时，使用向量x_i-1 * weight[i-1][]
@@ -37,10 +41,18 @@ class Network:
         self.initBounds()
 
     def initBounds(self):
-        for i in range(self.layerNum):
-            self.bounds.append([])
-            for j in range(self.eachLayerNums[i]):
-                self.bounds[i].append(Node())
+        # for i in range(self.layerNum):
+        #     self.bounds.append([])
+        #     for j in range(self.eachLayerNums[i]):
+        #         self.bounds[i].append(Node())
+        # pass
+        '''
+        初始化输入变量正规化后的上界
+        :return: [upper:ndArray, lower:ndArray]: list
+        '''
+        res = getNormaliseInput(self.propertyIndexReadyToVerify)
+        self.inputLmodel.var_bounds["ub"] = res[0]
+        self.inputLmodel.var_bounds["lb"] = res[1]
         pass
 
     def read(self):
@@ -96,10 +108,28 @@ class Network:
         net_model = load_model(self.networkFilePath, compile=False)
         self.layerNum = len(net_model.layers) + 1
         self.eachLayerNums.append(net_model.layers[0].get_weights()[0].shape[0])
-        for i in range(len(net_model.layers)):
-            self.weights.append(net_model.layers[i].get_weights()[0].T)
-            self.biases.append(net_model.layers[i].get_weights()[1])
-            self.eachLayerNums.append(len(net_model.layers[i].get_weights()[1]))
+        self.inputLmodel.size = self.eachLayerNums[0]
+        for layer in net_model.layers:
+            if layer.activation == keras.activations.relu:
+                self.lmodel.append(Layer(
+                    "relu",
+                    layer.get_weights()[0].T,
+                    layer.get_weights()[1]
+                ))
+            elif layer.activation == keras.activations.linear:
+                self.lmodel.append(Layer(
+                    "linear",
+                    layer.get_weights()[0].T,
+                    layer.get_weights()[1]
+                ))
+            else:
+                self.lmodel.append(Layer(
+                    "unknown"
+                ))
+            self.weights.append(layer.get_weights()[0].T)
+            self.biases.append(layer.get_weights()[1])
+            self.eachLayerNums.append(len(layer.get_weights()[1]))
+        pass
 
     def intervalPropagate(self):
         for i in range(1, self.layerNum):

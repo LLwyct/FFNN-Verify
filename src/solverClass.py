@@ -8,13 +8,13 @@ M = 100000
 
 class Solver:
     def __init__(self, network: Network, propertyFile: str):
-        self.m = gp.Model("ffnn")
-        self.net = network
+        self.m: gp.Model = gp.Model("ffnn")
+        self.net: Network = network
         self.indexToVar = []
         self.indexToReluvar = []
         self.indexToEpsilon = []
         self.propertyFile = propertyFile
-        self.initEpsilonVar()
+        # self.initEpsilonVar()
         # 初始化网络级约束
         self.addNetworkConstraints()
         # 初始化人工约束
@@ -29,21 +29,61 @@ class Solver:
                 self.indexToEpsilon.append([self.m.addVar(lb=0, ub=0.000001) for i in range(self.net.eachLayerNums[i])])
 
     def addNetworkConstraints(self):
-        # 添加网络节点变量
-        for layer in range(self.net.layerNum):
+        # 添加输入层变量
+        self.indexToVar.append(
+            [
+                self.m.addVar(
+                    ub=self.net.inputLmodel.var_bounds["ub"][i],
+                    lb=self.net.inputLmodel.var_bounds["lb"][i]
+                ) for i in range(self.net.inputLmodel.size)
+            ]
+        )
+        self.net.inputLmodel.setVar(self.indexToVar[self.indexToVar[-1]])
+        self.m.update()
+
+
+        # 添加非输入层变量 for all layer
+        for layer in self.net.lmodel:
             # 添加实数变量
-            self.indexToVar.append([self.m.addVar()
-                               for i in range(self.net.eachLayerNums[layer])])
+            layer_type = layer.type
+            layer_var_bounds = layer.var_bounds
+            if layer_type == "relu" or layer_type == "linear":
+                if layer_var_bounds["ub"] is not None and layer_var_bounds["lb"] is not None:
+                    self.indexToVar.append(
+                        [
+                            self.m.addVar(
+                                ub=layer_var_bounds["ub"][i],
+                                lb=layer_var_bounds["lb"][i]
+                            ) for i in range(layer.size)
+                        ]
+                    )
+                else:
+                    self.indexToVar.append(
+                        [
+                            self.m.addVar() for i in range(layer.size)
+                        ]
+                    )
+            # 保存一份副本到lmodel的layer中
+            layer.setVar(self.indexToVar[-1])
+        self.m.update()
+
 
         # 添加relu节点变量，是二进制变量，0代表非激活y=0，1代表激活y=x
-        for layer in range(self.net.layerNum):
+        for layer in self.net.lmodel:
             # 第一层input不添加relu节点
-            if layer == 0:
-                self.indexToReluvar.append([])
+            layer_type = layer.type
+            if layer_type == "relu":
+                self.indexToReluvar.append(
+                    [
+                        self.m.addVar(vtype=GRB.BINARY)
+                                            for i in range(layer.size)
+                    ]
+                )
             else:
-                # 输出层默认加relu激活函数
-                self.indexToReluvar.append([self.m.addVar(vtype=GRB.BINARY)
-                                       for i in range(self.net.eachLayerNums[layer])])
+                continue
+            layer.setReluVar(self.indexToReluvar[-1])
+        self.m.update()
+
 
         # 对于每一个节点添加网络级线性约束
         # 遍历层
