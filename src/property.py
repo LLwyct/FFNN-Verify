@@ -68,4 +68,4 @@ def getNormaliseInput(property = 0) :
     return [
         acas_normalise_input(acas_properties[property]["raw_bounds"]["lower"]),
         acas_normalise_input(acas_properties[property]["raw_bounds"]["upper"])
-        ]
+    ]

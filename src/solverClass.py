@@ -4,7 +4,7 @@ import numpy as np
 import gurobipy as gp
 from gurobipy import GRB
 
-M = 100000
+M = 1000000
 
 class Solver:
     def __init__(self, network: Network, propertyFile: str):
@@ -14,19 +14,11 @@ class Solver:
         self.indexToReluvar = []
         self.indexToEpsilon = []
         self.propertyFile = propertyFile
-        # self.initEpsilonVar()
         # 初始化网络级约束
         self.addNetworkConstraints()
         # 初始化人工约束
-        self.addManualConstraints()
+        # self.addManualConstraints()
         pass
-
-    def initEpsilonVar(self):
-        for i in range(self.net.layerNum):
-            if i == 0:
-                self.indexToEpsilon.append([])
-            else:
-                self.indexToEpsilon.append([self.m.addVar(lb=0, ub=0.000001) for i in range(self.net.eachLayerNums[i])])
 
     def addNetworkConstraints(self):
         # 添加输入层变量
@@ -34,11 +26,12 @@ class Solver:
             [
                 self.m.addVar(
                     ub=self.net.inputLmodel.var_bounds["ub"][i],
-                    lb=self.net.inputLmodel.var_bounds["lb"][i]
+                    lb=self.net.inputLmodel.var_bounds["lb"][i],
+                    vtype=GRB.CONTINUOUS
                 ) for i in range(self.net.inputLmodel.size)
             ]
         )
-        self.net.inputLmodel.setVar(self.indexToVar[self.indexToVar[-1]])
+        self.net.inputLmodel.setVar(self.indexToVar[-1])
         self.m.update()
 
 
@@ -48,21 +41,19 @@ class Solver:
             layer_type = layer.type
             layer_var_bounds = layer.var_bounds
             if layer_type == "relu" or layer_type == "linear":
-                if layer_var_bounds["ub"] is not None and layer_var_bounds["lb"] is not None:
-                    self.indexToVar.append(
-                        [
-                            self.m.addVar(
-                                ub=layer_var_bounds["ub"][i],
-                                lb=layer_var_bounds["lb"][i]
-                            ) for i in range(layer.size)
-                        ]
-                    )
-                else:
-                    self.indexToVar.append(
-                        [
-                            self.m.addVar() for i in range(layer.size)
-                        ]
-                    )
+                ub, lb = None, None
+                if layer_var_bounds["ub"] is None:
+                    ub = GRB.INFINITY
+                if layer_var_bounds["lb"] is None:
+                    lb = - GRB.INFINITY
+                self.indexToVar.append(
+                    [
+                        self.m.addVar(
+                            ub=ub,
+                            lb=lb
+                        ) for i in range(layer.size)
+                    ]
+                )
             # 保存一份副本到lmodel的layer中
             layer.setVar(self.indexToVar[-1])
         self.m.update()
@@ -75,8 +66,7 @@ class Solver:
             if layer_type == "relu":
                 self.indexToReluvar.append(
                     [
-                        self.m.addVar(vtype=GRB.BINARY)
-                                            for i in range(layer.size)
+                        self.m.addVar(vtype=GRB.BINARY) for i in range(layer.size)
                     ]
                 )
             else:
@@ -84,42 +74,29 @@ class Solver:
             layer.setReluVar(self.indexToReluvar[-1])
         self.m.update()
 
+        # 处理输入层到输出层的约束
+        preLayer = self.net.inputLmodel
+        for lidx, layer in enumerate(self.net.lmodel):
+            wx_add_b = np.dot(layer.weight, preLayer.var) + layer.bias
 
-        # 对于每一个节点添加网络级线性约束
-        # 遍历层
-        for curLayerIdx, curLayer in enumerate(self.indexToVar):
-            if curLayerIdx == 0:
-                continue
-            # 处理当前层curLayer的全部节点
-            lastLayerIdx = curLayerIdx - 1
-            lastLayerNodeNum = self.net.eachLayerNums[lastLayerIdx]
-            if lastLayerNodeNum != len(self.indexToVar[lastLayerIdx]):
-                raise
-            # 先取出来bias，防止频繁访问net对象
-            bias = self.net.biases[lastLayerIdx]
-            weight = self.net.weights[lastLayerIdx]
-            ans = np.dot(weight, self.indexToVar[lastLayerIdx])
-            wx_add_b = ans + bias
-            # 遍历层内的节点
-            for curNodeIdx, curNode in enumerate(curLayer):
-                # node is a var
-                # 公式1
-                # m += wx_add_b[curNodeIdx] - indexToEpsilon[curLayerIdx][curNodeIdx] <= curNode
-                # m.addConstr(wx_add_b[curNodeIdx] - self.indexToEpsilon[curLayerIdx][curNodeIdx] <= curNode)
-                self.m.addConstr(wx_add_b[curNodeIdx] <= curNode)
+            for curNodeIdx, curNode in enumerate(layer.var):
+                if layer.type == "linear":
+                    self.m.addConstr(curNode == wx_add_b[curNodeIdx])
+                elif layer.type == "relu":
+                    # 1
+                    self.m.addConstr(curNode >= wx_add_b[curNodeIdx])
 
-                # 公式2
-                # m += wx_add_b[curNodeIdx] + M*(1 - indexToReluvar[curLayerIdx][curNodeIdx]) + indexToEpsilon[curLayerIdx][curNodeIdx] >= curNode
-                # self.m.addConstr(wx_add_b[curNodeIdx] + M*(1 - self.indexToReluvar[curLayerIdx][curNodeIdx]) + self.indexToEpsilon[curLayerIdx][curNodeIdx] >= curNode)
-                self.m.addConstr(wx_add_b[curNodeIdx] + M * (1 - self.indexToReluvar[curLayerIdx][curNodeIdx]) >= curNode)
+                    # 2
+                    self.m.addConstr(curNode <= wx_add_b[curNodeIdx] + M * (1 - layer.reluVar[curNodeIdx]))
 
-                # 公式3
-                # m += curNode >= 0
-                self.m.addConstr(curNode >= 0)
+                    # 3
+                    self.m.addConstr(curNode >= 0)
 
-                # 公式4
-                # m += (curNode <= M * indexToReluvar[curLayerIdx][curNodeIdx])
-                self.m.addConstr(curNode <= M * self.indexToReluvar[curLayerIdx][curNodeIdx])
+                    # 4
+                    self.m.addConstr(curNode <= M * layer.reluVar[curNodeIdx])
+            preLayer = layer
+
+
 
     def addManualConstraints(self):
         # 添加输入层输出层上的约束
@@ -203,4 +180,11 @@ class Solver:
         #     print("-----------------solutation not found!-----------------")
         #     print("unsat")
         #     print("-----------------solutation not found!-----------------")
-        print('Obj: %g' % self.m.objVal)
+        # print('Obj: %g' % self.m.objVal)
+        # if self.m == GRB.Status.Fes
+        if self.m.status == GRB.OPTIMAL:
+            print("unsat")
+            for X in self.net.lmodel[-1].var:
+                print(X.x)
+        else:
+            print("sat")

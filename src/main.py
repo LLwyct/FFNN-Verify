@@ -1,8 +1,7 @@
-import os, sys
-
+import os
+from gurobipy import GRB
 from networkClass import Network
 from solverClass import Solver
-from gurobipy import GRB
 
 
 if __name__ == "__main__":
@@ -14,10 +13,11 @@ if __name__ == "__main__":
     network.intervalPropagate()
     solver = Solver(network, propertyFilePath)
     # 手动管理输出约束
-    solver.m.addConstr(solver.indexToVar[network.layerNum - 1][0] <= solver.indexToVar[network.layerNum - 1][1])
-    solver.m.addConstr(solver.indexToVar[network.layerNum - 1][0] <= solver.indexToVar[network.layerNum - 1][2])
-    solver.m.addConstr(solver.indexToVar[network.layerNum - 1][0] <= solver.indexToVar[network.layerNum - 1][3])
-    solver.m.addConstr(solver.indexToVar[network.layerNum - 1][0] <= solver.indexToVar[network.layerNum - 1][4])
+    solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[1])
+    solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[2])
+    solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[3])
+    solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[4])
+    solver.m.update()
     '''
     gurobi已经提供了关于容忍误差，所以此处不需要考虑舍入问题
     '''

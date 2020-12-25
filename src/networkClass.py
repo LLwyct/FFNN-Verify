@@ -51,8 +51,8 @@ class Network:
         :return: [upper:ndArray, lower:ndArray]: list
         '''
         res = getNormaliseInput(self.propertyIndexReadyToVerify)
-        self.inputLmodel.var_bounds["ub"] = res[0]
-        self.inputLmodel.var_bounds["lb"] = res[1]
+        self.inputLmodel.var_bounds["lb"] = res[0]
+        self.inputLmodel.var_bounds["ub"] = res[1]
         pass
 
     def read(self):
