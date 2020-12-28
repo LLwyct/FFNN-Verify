@@ -1,5 +1,10 @@
 from numpy import ndarray
 
+class L:
+    def __init__(self):
+        pass
+
+
 class Layer:
     def __init__(self, layer_type="unknown", w = None, b = None):
         # "linear" | "relu" | "input" | "unknown"
@@ -11,12 +16,17 @@ class Layer:
             pass
         elif b is not None:
             self.size = b.size
-        self.var_bounds = {
+        self.var_bounds_in = {
+            "ub": None,
+            "lb": None
+        }
+        self.var_bounds_out = {
             "ub": None,
             "lb": None
         }
         self.var = None
         self.reluVar = None
+        self.nodeList = []
 
     def setVar(self, varlist):
         if self.var is None:

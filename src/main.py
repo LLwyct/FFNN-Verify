@@ -5,12 +5,11 @@ from solverClass import Solver
 
 
 if __name__ == "__main__":
-    networkFileName = "acas_1_1.h5"
+    networkFileName = "acas_1_4.h5"
     propertyFileName = "property_3.txt"
     networkFilePath = os.path.abspath(os.path.join("../resources/Acas", networkFileName))
     propertyFilePath = os.path.abspath(os.path.join("../resources", propertyFileName))
     network = Network(networkFilePath, type="h5", propertyReadyToVerify=3)
-    network.intervalPropagate()
     solver = Solver(network, propertyFilePath)
     # 手动管理输出约束
     solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[1])
@@ -21,5 +20,5 @@ if __name__ == "__main__":
     '''
     gurobi已经提供了关于容忍误差，所以此处不需要考虑舍入问题
     '''
-    solver.m.setObjective(0, GRB.MAXIMIZE)
+    # solver.m.setObjective()
     solver.solve()

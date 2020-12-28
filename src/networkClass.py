@@ -16,7 +16,7 @@ class Network:
         # 每一层的节点数
         self.eachLayerNums: list = []
         self.inputLmodel = Layer()
-        self.lmodel = []
+        self.lmodel: list = []
         '''
         weight矩阵，长度为layerNum - 1
         当计算第i层第j个节点的值时，使用向量x_i-1 * weight[i-1][]
@@ -51,8 +51,8 @@ class Network:
         :return: [upper:ndArray, lower:ndArray]: list
         '''
         res = getNormaliseInput(self.propertyIndexReadyToVerify)
-        self.inputLmodel.var_bounds["lb"] = res[0]
-        self.inputLmodel.var_bounds["ub"] = res[1]
+        self.inputLmodel.var_bounds_out["lb"] = res[0]
+        self.inputLmodel.var_bounds_out["ub"] = res[1]
         pass
 
     def read(self):
@@ -129,11 +129,6 @@ class Network:
             self.weights.append(layer.get_weights()[0].T)
             self.biases.append(layer.get_weights()[1])
             self.eachLayerNums.append(len(layer.get_weights()[1]))
-        pass
-
-    def intervalPropagate(self):
-        for i in range(1, self.layerNum):
-            pass
         pass
 
 

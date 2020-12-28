@@ -3,6 +3,9 @@ from networkClass import Network
 import numpy as np
 import gurobipy as gp
 from gurobipy import GRB
+from Node import Node
+from Layer import Layer
+
 
 M = 1000000
 
@@ -14,19 +17,19 @@ class Solver:
         self.indexToReluvar = []
         self.indexToEpsilon = []
         self.propertyFile = propertyFile
+        self.intervalCompute()
         # 初始化网络级约束
         self.addNetworkConstraints()
         # 初始化人工约束
         # self.addManualConstraints()
-        pass
 
     def addNetworkConstraints(self):
         # 添加输入层变量
         self.indexToVar.append(
             [
                 self.m.addVar(
-                    ub=self.net.inputLmodel.var_bounds["ub"][i],
-                    lb=self.net.inputLmodel.var_bounds["lb"][i],
+                    ub=self.net.inputLmodel.var_bounds_out["ub"][i],
+                    lb=self.net.inputLmodel.var_bounds_out["lb"][i],
                     vtype=GRB.CONTINUOUS
                 ) for i in range(self.net.inputLmodel.size)
             ]
@@ -35,22 +38,28 @@ class Solver:
         self.m.update()
 
 
+
         # 添加非输入层变量 for all layer
         for layer in self.net.lmodel:
+            assert isinstance(layer, Layer)
             # 添加实数变量
             layer_type = layer.type
-            layer_var_bounds = layer.var_bounds
+            layer_var_bounds = layer.var_bounds_out
             if layer_type == "relu" or layer_type == "linear":
                 ub, lb = None, None
                 if layer_var_bounds["ub"] is None:
                     ub = GRB.INFINITY
+                else:
+                    ub = layer_var_bounds["ub"]
                 if layer_var_bounds["lb"] is None:
                     lb = - GRB.INFINITY
+                else:
+                    lb = layer_var_bounds["lb"]
                 self.indexToVar.append(
                     [
                         self.m.addVar(
-                            ub=ub,
-                            lb=lb
+                            ub=ub[i],
+                            lb=lb[i]
                         ) for i in range(layer.size)
                     ]
                 )
@@ -64,13 +73,18 @@ class Solver:
             # 第一层input不添加relu节点
             layer_type = layer.type
             if layer_type == "relu":
-                self.indexToReluvar.append(
-                    [
-                        self.m.addVar(vtype=GRB.BINARY) for i in range(layer.size)
-                    ]
-                )
+                reluList = []
+                for i in range(layer.size):
+                    if layer.var_bounds_in["lb"][i] >= 0:
+                        reluList.append(None)
+                    elif layer.var_bounds_in["ub"][i] <= 0:
+                        reluList.append(None)
+                    else:
+                        reluList.append(self.m.addVar(vtype=GRB.BINARY))
+                self.indexToReluvar.append(reluList)
             else:
                 continue
+
             layer.setReluVar(self.indexToReluvar[-1])
         self.m.update()
 
@@ -83,20 +97,25 @@ class Solver:
                 if layer.type == "linear":
                     self.m.addConstr(curNode == wx_add_b[curNodeIdx])
                 elif layer.type == "relu":
-                    # 1
-                    self.m.addConstr(curNode >= wx_add_b[curNodeIdx])
+                    if layer.var_bounds_in["lb"][curNodeIdx] >= 0:
+                        self.m.addConstr(curNode == wx_add_b[curNodeIdx])
+                    elif layer.var_bounds_in["ub"][curNodeIdx] <= 0:
+                        self.m.addConstr(curNode == 0)
+                    else:
+                        # 1
+                        self.m.addConstr(curNode >= wx_add_b[curNodeIdx])
 
-                    # 2
-                    self.m.addConstr(curNode <= wx_add_b[curNodeIdx] + M * (1 - layer.reluVar[curNodeIdx]))
+                        # 2
+                        # self.m.addConstr(curNode <= wx_add_b[curNodeIdx] + M * (1 - layer.reluVar[curNodeIdx]))
+                        self.m.addConstr(curNode <= wx_add_b[curNodeIdx] - layer.var_bounds_in["lb"][curNodeIdx] * (1 - layer.reluVar[curNodeIdx]))
 
-                    # 3
-                    self.m.addConstr(curNode >= 0)
+                        # 3
+                        self.m.addConstr(curNode >= 0)
 
-                    # 4
-                    self.m.addConstr(curNode <= M * layer.reluVar[curNodeIdx])
+                        # 4
+                        # self.m.addConstr(curNode <= M * layer.reluVar[curNodeIdx])
+                        self.m.addConstr(curNode <= layer.var_bounds_in["ub"][curNodeIdx] * layer.reluVar[curNodeIdx])
             preLayer = layer
-
-
 
     def addManualConstraints(self):
         # 添加输入层输出层上的约束
@@ -164,6 +183,32 @@ class Solver:
                 line = f.readline()
         return inputConstraints, outputConstraints
 
+    def intervalCompute(self):
+        preLayer_u = self.net.inputLmodel.var_bounds_out["ub"]
+        preLayer_l = self.net.inputLmodel.var_bounds_out["lb"]
+        for layer in self.net.lmodel:
+            assert isinstance(layer, Layer)
+            w_active = np.maximum(layer.weight, np.zeros(layer.weight.shape))
+            w_inactive = np.minimum(layer.weight, np.zeros(layer.weight.shape))
+            # l_hat = w_+ * l_{i-1} + w_- * u_{i-1}
+            l_left = np.dot(w_active, preLayer_l)
+            l_right = np.dot(w_inactive, preLayer_u)
+            l_hat = l_left + l_right
+            # u_hat = w_+ * u_{i-1} + w_- * l_{i-1}
+            u_left = np.dot(w_active, preLayer_u)
+            u_right = np.dot(w_inactive, preLayer_l)
+            u_hat = u_left + u_right
+            layer.var_bounds_in["ub"] = u_hat + layer.bias
+            layer.var_bounds_in["lb"] = l_hat + layer.bias
+            # 到这里于venus甚至运行的数据都一模一样
+            if layer.type == "relu":
+                preLayer_u = layer.var_bounds_out["ub"] = np.maximum(layer.var_bounds_in["ub"], np.zeros(u_hat.shape))
+                preLayer_l = layer.var_bounds_out["lb"] = np.maximum(layer.var_bounds_in["lb"], np.zeros(l_hat.shape))
+            elif layer.type == "linear":
+                preLayer_u = layer.var_bounds_out["ub"] = layer.var_bounds_in["ub"]
+                preLayer_l = layer.var_bounds_out["lb"] = layer.var_bounds_in["lb"]
+
+
     def solve(self):
         self.m.optimize()
         # if self.m.num_solutions:
@@ -187,4 +232,4 @@ class Solver:
             for X in self.net.lmodel[-1].var:
                 print(X.x)
         else:
-            print("sat")
+            print(">>>>>>>>>>>sat")
