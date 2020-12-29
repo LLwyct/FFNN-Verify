@@ -17,7 +17,6 @@ class Solver:
         self.indexToReluvar = []
         self.indexToEpsilon = []
         self.propertyFile = propertyFile
-        self.intervalCompute()
         # 初始化网络级约束
         self.addNetworkConstraints()
         # 初始化人工约束
@@ -48,11 +47,11 @@ class Solver:
             if layer_type == "relu" or layer_type == "linear":
                 ub, lb = None, None
                 if layer_var_bounds["ub"] is None:
-                    ub = GRB.INFINITY
+                    ub = [GRB.INFINITY for i in range(layer.size)]
                 else:
                     ub = layer_var_bounds["ub"]
                 if layer_var_bounds["lb"] is None:
-                    lb = - GRB.INFINITY
+                    lb = [-GRB.INFINITY for i in range(layer.size)]
                 else:
                     lb = layer_var_bounds["lb"]
                 self.indexToVar.append(
@@ -70,21 +69,14 @@ class Solver:
 
         # 添加relu节点变量，是二进制变量，0代表非激活y=0，1代表激活y=x
         for layer in self.net.lmodel:
-            # 第一层input不添加relu节点
             layer_type = layer.type
             if layer_type == "relu":
                 reluList = []
                 for i in range(layer.size):
-                    if layer.var_bounds_in["lb"][i] >= 0:
-                        reluList.append(None)
-                    elif layer.var_bounds_in["ub"][i] <= 0:
-                        reluList.append(None)
-                    else:
-                        reluList.append(self.m.addVar(vtype=GRB.BINARY))
+                    reluList.append(self.m.addVar(vtype=GRB.BINARY))
                 self.indexToReluvar.append(reluList)
             else:
                 continue
-
             layer.setReluVar(self.indexToReluvar[-1])
         self.m.update()
 
@@ -183,30 +175,7 @@ class Solver:
                 line = f.readline()
         return inputConstraints, outputConstraints
 
-    def intervalCompute(self):
-        preLayer_u = self.net.inputLmodel.var_bounds_out["ub"]
-        preLayer_l = self.net.inputLmodel.var_bounds_out["lb"]
-        for layer in self.net.lmodel:
-            assert isinstance(layer, Layer)
-            w_active = np.maximum(layer.weight, np.zeros(layer.weight.shape))
-            w_inactive = np.minimum(layer.weight, np.zeros(layer.weight.shape))
-            # l_hat = w_+ * l_{i-1} + w_- * u_{i-1}
-            l_left = np.dot(w_active, preLayer_l)
-            l_right = np.dot(w_inactive, preLayer_u)
-            l_hat = l_left + l_right
-            # u_hat = w_+ * u_{i-1} + w_- * l_{i-1}
-            u_left = np.dot(w_active, preLayer_u)
-            u_right = np.dot(w_inactive, preLayer_l)
-            u_hat = u_left + u_right
-            layer.var_bounds_in["ub"] = u_hat + layer.bias
-            layer.var_bounds_in["lb"] = l_hat + layer.bias
-            # 到这里于venus甚至运行的数据都一模一样
-            if layer.type == "relu":
-                preLayer_u = layer.var_bounds_out["ub"] = np.maximum(layer.var_bounds_in["ub"], np.zeros(u_hat.shape))
-                preLayer_l = layer.var_bounds_out["lb"] = np.maximum(layer.var_bounds_in["lb"], np.zeros(l_hat.shape))
-            elif layer.type == "linear":
-                preLayer_u = layer.var_bounds_out["ub"] = layer.var_bounds_in["ub"]
-                preLayer_l = layer.var_bounds_out["lb"] = layer.var_bounds_in["lb"]
+
 
 
     def solve(self):

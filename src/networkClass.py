@@ -39,6 +39,8 @@ class Network:
         else:
             raise IOError
         self.initBounds()
+        self.intervalCompute()
+
 
     def initBounds(self):
         # for i in range(self.layerNum):
@@ -54,6 +56,31 @@ class Network:
         self.inputLmodel.var_bounds_out["lb"] = res[0]
         self.inputLmodel.var_bounds_out["ub"] = res[1]
         pass
+
+    def intervalCompute(self):
+        preLayer_u = self.inputLmodel.var_bounds_out["ub"]
+        preLayer_l = self.inputLmodel.var_bounds_out["lb"]
+        for layer in self.lmodel:
+            assert isinstance(layer, Layer)
+            w_active = np.maximum(layer.weight, np.zeros(layer.weight.shape))
+            w_inactive = np.minimum(layer.weight, np.zeros(layer.weight.shape))
+            # l_hat = w_+ * l_{i-1} + w_- * u_{i-1}
+            l_left = np.dot(w_active, preLayer_l)
+            l_right = np.dot(w_inactive, preLayer_u)
+            l_hat = l_left + l_right
+            # u_hat = w_+ * u_{i-1} + w_- * l_{i-1}
+            u_left = np.dot(w_active, preLayer_u)
+            u_right = np.dot(w_inactive, preLayer_l)
+            u_hat = u_left + u_right
+            layer.var_bounds_in["ub"] = u_hat + layer.bias
+            layer.var_bounds_in["lb"] = l_hat + layer.bias
+            # 到这里于venus甚至运行的数据都一模一样
+            if layer.type == "relu":
+                preLayer_u = layer.var_bounds_out["ub"] = np.maximum(layer.var_bounds_in["ub"], np.zeros(u_hat.shape))
+                preLayer_l = layer.var_bounds_out["lb"] = np.maximum(layer.var_bounds_in["lb"], np.zeros(l_hat.shape))
+            elif layer.type == "linear":
+                preLayer_u = layer.var_bounds_out["ub"] = layer.var_bounds_in["ub"]
+                preLayer_l = layer.var_bounds_out["lb"] = layer.var_bounds_in["lb"]
 
     def read(self):
         self.weights = []

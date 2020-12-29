@@ -1,5 +1,5 @@
 from numpy import ndarray
-
+import numpy as np
 class L:
     def __init__(self):
         pass
@@ -30,13 +30,15 @@ class Layer:
 
     def setVar(self, varlist):
         if self.var is None:
-            self.var = varlist
+            self.var = np.array(varlist)
         else:
             pass
 
     def setReluVar(self, reluVarList):
         if self.type == "relu" and self.reluVar is None:
-            self.reluVar = reluVarList
+            self.reluVar = np.array(reluVarList)
+        else:
+            pass
 
     def getVar(self):
         if self.var is not None:
