@@ -43,15 +43,6 @@ class Network:
 
 
     def initBounds(self):
-        # for i in range(self.layerNum):
-        #     self.bounds.append([])
-        #     for j in range(self.eachLayerNums[i]):
-        #         self.bounds[i].append(Node())
-        # pass
-        '''
-        初始化输入变量正规化后的上界
-        :return: [upper:ndArray, lower:ndArray]: list
-        '''
         res = getNormaliseInput(self.propertyIndexReadyToVerify)
         self.inputLmodel.var_bounds_out["lb"] = res[0]
         self.inputLmodel.var_bounds_out["ub"] = res[1]

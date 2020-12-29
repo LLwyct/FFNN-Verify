@@ -5,7 +5,7 @@ from solverClass import Solver
 
 
 if __name__ == "__main__":
-    networkFileName = "acas_1_4.h5"
+    networkFileName = "acas_1_6.h5"
     propertyFileName = "property_3.txt"
     networkFilePath = os.path.abspath(os.path.join("../resources/Acas", networkFileName))
     propertyFilePath = os.path.abspath(os.path.join("../resources", propertyFileName))
@@ -22,3 +22,4 @@ if __name__ == "__main__":
     '''
     # solver.m.setObjective()
     solver.solve()
+    print(networkFileName)

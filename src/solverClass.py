@@ -199,6 +199,8 @@ class Solver:
         if self.m.status == GRB.OPTIMAL:
             print("unsat")
             for X in self.net.lmodel[-1].var:
-                print(X.x)
+                print("y_",X.x)
+            for X in self.net.inputLmodel.var:
+                print("X_",X.x)
         else:
             print(">>>>>>>>>>>sat")
