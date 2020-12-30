@@ -1,9 +1,9 @@
-from networkClass import Network
 import numpy as np
 import gurobipy as gp
-from gurobipy import GRB
 from Layer import Layer
 from typing import List
+from gurobipy import GRB
+from networkClass import Network
 
 class Solver:
     def __init__(self, network: Network, propertyFile: str):

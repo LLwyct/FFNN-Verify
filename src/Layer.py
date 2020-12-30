@@ -1,8 +1,5 @@
-from numpy import ndarray
 import numpy as np
-class L:
-    def __init__(self):
-        pass
+from numpy import ndarray
 
 
 class Layer:

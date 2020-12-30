@@ -1,10 +1,10 @@
-import numpy as np
-from keras.models import load_model
 import keras
+import numpy as np
 from Layer import Layer
-from property import getNormaliseInput
 from typing import List
 from numpy import ndarray
+from keras.models import load_model
+from property import getNormaliseInput
 
 
 class Network:
