@@ -1,4 +1,4 @@
-from enum import Enum
+'''from enum import Enum
 
 class NodeType(Enum):
     CONTINUE:   0
@@ -13,3 +13,4 @@ class Node:
         self.ub = None
         self.lb = None
 
+'''

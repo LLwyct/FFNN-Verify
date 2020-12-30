@@ -1,21 +1,16 @@
-# from mip import Model, BINARY, INTEGER, xsum
 from networkClass import Network
 import numpy as np
 import gurobipy as gp
 from gurobipy import GRB
-from Node import Node
 from Layer import Layer
-
-
-M = 1000000
+from typing import List
 
 class Solver:
     def __init__(self, network: Network, propertyFile: str):
         self.m: gp.Model = gp.Model("ffnn")
         self.net: Network = network
-        self.indexToVar = []
-        self.indexToReluvar = []
-        self.indexToEpsilon = []
+        self.indexToVar: List[List] = []
+        self.indexToReluvar: List[List] = []
         self.propertyFile = propertyFile
         # 初始化网络级约束
         self.addNetworkConstraints()
@@ -84,7 +79,6 @@ class Solver:
         preLayer = self.net.inputLmodel
         for lidx, layer in enumerate(self.net.lmodel):
             wx_add_b = np.dot(layer.weight, preLayer.var) + layer.bias
-
             for curNodeIdx, curNode in enumerate(layer.var):
                 if layer.type == "linear":
                     self.m.addConstr(curNode == wx_add_b[curNodeIdx])
@@ -120,16 +114,12 @@ class Solver:
             if equationType == 0:
                 # self.m += self.indexToVar[0][varIdx] == scalar
                 self.m.addConstr(self.indexToVar[0][varIdx] == scalar)
-                self.net.bounds[0][varIdx].lb = scalar
-                self.net.bounds[0][varIdx].ub = scalar
             elif equationType == 1:
                 # self.m += self.indexToVar[0][varIdx] <= scalar
                 self.m.addConstr(self.indexToVar[0][varIdx] <= scalar)
-                self.net.bounds[0][varIdx].ub = scalar
             elif equationType == 2:
                 # self.m += self.indexToVar[0][varIdx] >= scalar
                 self.m.addConstr(self.indexToVar[0][varIdx] >= scalar)
-                self.net.bounds[0][varIdx].lb = scalar
         for outputConstraint in outputConstraints:
             varIdx          = outputConstraint[0]
             equationType    = outputConstraint[1]
@@ -175,32 +165,13 @@ class Solver:
                 line = f.readline()
         return inputConstraints, outputConstraints
 
-
-
-
     def solve(self):
         self.m.optimize()
-        # if self.m.num_solutions:
-        #     print("-----------------solutation found!-----------------")
-        #     for i in range(self.net.layerNum):
-        #         for j, node in enumerate(self.indexToVar[i]):
-        #             print("x_{}{}:{}".format(i, j, node.x))
-        #
-        #     for i in range(self.net.layerNum):
-        #         for j, node in enumerate(self.indexToReluvar[i]):
-        #             print("&_{}{}:{}".format(i, j, node.x))
-        #     print("-----------------solutation found!-----------------")
-        # else:
-        #     print("-----------------solutation not found!-----------------")
-        #     print("unsat")
-        #     print("-----------------solutation not found!-----------------")
-        # print('Obj: %g' % self.m.objVal)
-        # if self.m == GRB.Status.Fes
         if self.m.status == GRB.OPTIMAL:
-            print("unsat")
-            for X in self.net.lmodel[-1].var:
-                print("y_",X.x)
-            for X in self.net.inputLmodel.var:
-                print("X_",X.x)
+            print(">>>>>>>>>>unsat>>>>>>>>>>")
+            for i, X in enumerate(self.net.lmodel[-1].var):
+                print("y_" + str(i), X.x)
+            for i, X in enumerate(self.net.inputLmodel.var):
+                print("X_" + str(i), X.x)
         else:
-            print(">>>>>>>>>>>sat")
+            print(">>>>>>>>>>>sat>>>>>>>>>>>")

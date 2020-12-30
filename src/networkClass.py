@@ -3,38 +3,34 @@ from keras.models import load_model
 import keras
 from Layer import Layer
 from property import getNormaliseInput
+from typing import List
+from numpy import ndarray
 
 
 class Network:
-    def __init__(self, path="", type="h5", propertyReadyToVerify=0):
-        # 网络文件路径
+    def __init__(self, path="", fmtType="h5", propertyReadyToVerify=0):
         self.networkFilePath: str = path
-        self.type = type
-        self.propertyIndexReadyToVerify = propertyReadyToVerify
-        # 网络层数，包括输入输出层
-        self.layerNum: int = -1
-        # 每一层的节点数
-        self.eachLayerNums: list = []
-        self.inputLmodel = Layer()
-        self.lmodel: list = []
+        self.netFmtType: str = fmtType
+        self.propertyIndexReadyToVerify: int = propertyReadyToVerify
+        self.layerNum: int = 0
+        self.eachLayerNums: List[int] = []
+        self.inputLmodel: Layer = Layer()
+        self.lmodel: List[Layer] = []
         '''
         weight矩阵，长度为layerNum - 1
-        当计算第i层第j个节点的值时，使用向量x_i-1 * weight[i-1][]
+        当计算第i层第j个节点的值时，使用向量weight[i] * x_{i-1}
         '''
-        self.weights: list = []
+        self.weights: List[ndarray] = []
 
-        # bias矩阵，长度也为layerNum - 1
-        self.biases:list = []
-
-        self.bounds = []
+        self.biases: List[ndarray] = []
 
         self.init()
 
 
     def init(self):
-        if self.type == "nnet" and self.networkFilePath != "":
-            self.read()
-        elif self.type == "h5" and self.networkFilePath != "":
+        if self.netFmtType == "nnet" and self.networkFilePath != "":
+            self.readFromNnet()
+        elif self.netFmtType == "h5" and self.networkFilePath != "":
             self.readFromH5()
         else:
             raise IOError
@@ -65,7 +61,6 @@ class Network:
             u_hat = u_left + u_right
             layer.var_bounds_in["ub"] = u_hat + layer.bias
             layer.var_bounds_in["lb"] = l_hat + layer.bias
-            # 到这里于venus甚至运行的数据都一模一样
             if layer.type == "relu":
                 preLayer_u = layer.var_bounds_out["ub"] = np.maximum(layer.var_bounds_in["ub"], np.zeros(u_hat.shape))
                 preLayer_l = layer.var_bounds_out["lb"] = np.maximum(layer.var_bounds_in["lb"], np.zeros(l_hat.shape))
@@ -73,11 +68,9 @@ class Network:
                 preLayer_u = layer.var_bounds_out["ub"] = layer.var_bounds_in["ub"]
                 preLayer_l = layer.var_bounds_out["lb"] = layer.var_bounds_in["lb"]
 
-    def read(self):
-        self.weights = []
-        self.biases = []
+    def readFromNnet(self):
         if self.networkFilePath == "":
-            return
+            raise IOError
         with open(self.networkFilePath, "r") as f:
             # 读取网络层数
             line = f.readline()
@@ -148,9 +141,3 @@ class Network:
             self.biases.append(layer.get_weights()[1])
             self.eachLayerNums.append(len(layer.get_weights()[1]))
         pass
-
-
-class Node:
-    def __init__(self):
-        self.lb = None
-        self.ub = None

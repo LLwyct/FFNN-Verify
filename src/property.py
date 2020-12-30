@@ -1,6 +1,8 @@
 import numpy as np
+from typing import List, Dict
 
-acas_properties = [
+
+acas_properties: List[Dict] = [
     {},
     # 1: If the intruder is distant and is significantly slower than the ownship,
     # the score of a COC advisory will always be below a certain fixed threshold
@@ -8,7 +10,7 @@ acas_properties = [
         "name": "Property 1",
         "input": "",
         "output": "",
-        "raw_bounds": {
+        "input_bounds": {
             "lower": [55947.691, -3.141592, -3.141592, 1145, 0],
             "upper": [62000, 3.141592, 3.141592, 1200, 60]
         }
@@ -22,7 +24,7 @@ acas_properties = [
         "name": "Property 2",
         "input": "",
         "output": "",
-        "raw_bounds": {
+        "input_bounds": {
             "lower": [55947.691, -3.141592, -3.141592, 1145, 0],
             "upper": [62000, 3.141592, 3.141592, 1200, 60]
         }
@@ -36,7 +38,7 @@ acas_properties = [
         "name": "Property 3",
         "input": "",
         "output": "",
-        "raw_bounds": {
+        "input_bounds": {
             "lower": [1500, -0.06, 3.10, 980, 960],
             "upper": [1800, 0.06, 3.141592, 1200, 1200]
         },
@@ -64,8 +66,8 @@ def acas_denormalise_output(value):
     return value * output_range + output_mean
 
 
-def getNormaliseInput(property = 0) :
+def getNormaliseInput(property = 0) -> list:
     return [
-        acas_normalise_input(acas_properties[property]["raw_bounds"]["lower"]),
-        acas_normalise_input(acas_properties[property]["raw_bounds"]["upper"])
+        acas_normalise_input(acas_properties[property]["input_bounds"]["lower"]),
+        acas_normalise_input(acas_properties[property]["input_bounds"]["upper"])
     ]
