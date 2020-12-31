@@ -1,7 +1,7 @@
 import numpy as np
 import gurobipy as gp
-from Layer import Layer
-from typing import List
+from Layer import ReluLayer, LinearLayer
+from typing import List, Union
 from gurobipy import GRB
 from networkClass import Network
 
@@ -18,7 +18,7 @@ class Solver:
         # self.addManualConstraints()
 
     def addNetworkConstraints(self):
-        # 添加输入层变量
+        # 添加输入层的COUTINUE变量
         self.indexToVar.append(
             [
                 self.m.addVar(
@@ -33,9 +33,8 @@ class Solver:
 
 
 
-        # 添加非输入层变量 for all layer
+        # 添加非输入层CONTINUE变量
         for layer in self.net.lmodel:
-            assert isinstance(layer, Layer)
             # 添加实数变量
             layer_type = layer.type
             layer_var_bounds = layer.var_bounds_out
@@ -70,37 +69,16 @@ class Solver:
                 for i in range(layer.size):
                     reluList.append(self.m.addVar(vtype=GRB.BINARY))
                 self.indexToReluvar.append(reluList)
+                layer.setReluVar(self.indexToReluvar[-1])
             else:
                 continue
-            layer.setReluVar(self.indexToReluvar[-1])
         self.m.update()
+
 
         # 处理输入层到输出层的约束
         preLayer = self.net.inputLmodel
         for lidx, layer in enumerate(self.net.lmodel):
-            wx_add_b = np.dot(layer.weight, preLayer.var) + layer.bias
-            for curNodeIdx, curNode in enumerate(layer.var):
-                if layer.type == "linear":
-                    self.m.addConstr(curNode == wx_add_b[curNodeIdx])
-                elif layer.type == "relu":
-                    if layer.var_bounds_in["lb"][curNodeIdx] >= 0:
-                        self.m.addConstr(curNode == wx_add_b[curNodeIdx])
-                    elif layer.var_bounds_in["ub"][curNodeIdx] <= 0:
-                        self.m.addConstr(curNode == 0)
-                    else:
-                        # 1
-                        self.m.addConstr(curNode >= wx_add_b[curNodeIdx])
-
-                        # 2
-                        # self.m.addConstr(curNode <= wx_add_b[curNodeIdx] + M * (1 - layer.reluVar[curNodeIdx]))
-                        self.m.addConstr(curNode <= wx_add_b[curNodeIdx] - layer.var_bounds_in["lb"][curNodeIdx] * (1 - layer.reluVar[curNodeIdx]))
-
-                        # 3
-                        self.m.addConstr(curNode >= 0)
-
-                        # 4
-                        # self.m.addConstr(curNode <= M * layer.reluVar[curNodeIdx])
-                        self.m.addConstr(curNode <= layer.var_bounds_in["ub"][curNodeIdx] * layer.reluVar[curNodeIdx])
+            layer.addConstr(preLayer, self.m)
             preLayer = layer
 
     def addManualConstraints(self):

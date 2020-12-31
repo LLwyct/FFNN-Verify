@@ -8,3 +8,6 @@ class Options:
         self.netPath = path
         self.checkType = checkType
         self.property = property
+
+class GlobalSetting:
+        constrMethod = 0

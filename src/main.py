@@ -56,7 +56,7 @@ def mainForOuterScript():
     print(networkFilePath)
 
 def mainForRun():
-    networkFileName = "acas_1_7.h5"
+    networkFileName = "acas_1_1.h5"
     propertyFileName = "property_3.txt"
     networkFilePath = os.path.abspath(os.path.join("../resources/Acas", networkFileName))
     propertyFilePath = os.path.abspath(os.path.join("../resources", propertyFileName))
@@ -77,8 +77,8 @@ def mainForRun():
 
 if __name__ == "__main__":
     # 默认作为脚本使用，如为了方便测试可以使用mainForRun
-    # mainForRun()
-    mainForOuterScript()
+    mainForRun()
+    # mainForOuterScript()
 
 
 
