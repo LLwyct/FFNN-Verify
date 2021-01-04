@@ -100,10 +100,10 @@ class ReluLayer(Layer):
                     gmodel.addConstr(curNode >= wx_add_b[curNodeIdx])
 
                     # 3
+                    tempk = self.var_bounds_in["ub"][curNodeIdx] / (self.var_bounds_in["ub"][curNodeIdx] - self.var_bounds_in["lb"][curNodeIdx])
                     gmodel.addConstr(
                         curNode <= (
-                            (self.var_bounds_in["ub"][curNodeIdx] * (wx_add_b[curNodeIdx] - self.var_bounds_in["lb"][curNodeIdx]))
-                            / (self.var_bounds_in["ub"][curNodeIdx] - self.var_bounds_in["lb"][curNodeIdx])
+                            tempk * (wx_add_b[curNodeIdx] - self.var_bounds_in["lb"][curNodeIdx])
                         )
                     )
 
@@ -125,7 +125,7 @@ class LinearLayer(Layer):
         self.bias:      ndarray = b
 
     def addConstr(self, preLayer, gmodel: Model):
-        if GlobalSetting.constrMethod == 0:
+        if GlobalSetting.constrMethod == 0 or GlobalSetting.constrMethod == 1:
             wx_add_b = np.dot(self.weight, preLayer.var) + self.bias
             for curNodeIdx, curNode in enumerate(self.var):
                 gmodel.addConstr(curNode == wx_add_b[curNodeIdx])
