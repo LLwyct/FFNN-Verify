@@ -26,6 +26,19 @@ class Network:
 
         self.init()
 
+    def init(self):
+        if self.netFmtType == "nnet" and self.networkFilePath != "":
+            self.readFromNnet()
+        elif self.netFmtType == "h5" and self.networkFilePath != "":
+            self.readFromH5()
+        else:
+            raise IOError
+        self.initBounds()
+        # 在nsverify中不需要区间传播，所以注释掉这句话，Layer.py中使用bigM编码
+        # self.intervalCompute()
+        pass
+
+
     def readFromH5(self):
         net_model = load_model(self.networkFilePath, compile=False)
         self.layerNum = len(net_model.layers) + 1
@@ -49,17 +62,6 @@ class Network:
             self.weights.append(layer.get_weights()[0].T)
             self.biases.append(layer.get_weights()[1])
             self.eachLayerNums.append(len(layer.get_weights()[1]))
-        pass
-
-    def init(self):
-        if self.netFmtType == "nnet" and self.networkFilePath != "":
-            self.readFromNnet()
-        elif self.netFmtType == "h5" and self.networkFilePath != "":
-            self.readFromH5()
-        else:
-            raise IOError
-        self.initBounds()
-        self.intervalCompute()
         pass
 
 

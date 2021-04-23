@@ -15,6 +15,7 @@ class Solver:
         # 初始化网络级约束
         self.addNetworkConstraints()
         # 初始化人工约束
+        # 新版本已经在main脚本中手动初始化人工（外部）约束，因此这里注释掉，但不删除
         # self.addManualConstraints()
 
     def addNetworkConstraints(self):
