@@ -11,6 +11,7 @@
 - numpy
 - gurobi
 - keras
+- onnx
 
 
 ## 1.2. example:

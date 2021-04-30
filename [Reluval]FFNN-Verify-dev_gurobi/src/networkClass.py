@@ -1,5 +1,6 @@
 import keras
 import numpy as np
+import pickle
 from Layer import Layer, InputLayer, ReluLayer, LinearLayer
 from typing import List, Union, Optional
 from numpy import ndarray
@@ -8,7 +9,7 @@ from property import getNormaliseInput
 from LinearFunctions import LinearFunctions
 
 class Network:
-    def __init__(self, path="", fmtType="h5", propertyReadyToVerify=0):
+    def __init__(self, path="", fmtType="h5", propertyReadyToVerify=-1, imgPklFilePath=""):
         self.networkFilePath: str = path
         self.netFmtType: str = fmtType
         self.propertyIndexReadyToVerify: int = propertyReadyToVerify
@@ -24,6 +25,13 @@ class Network:
 
         self.biases: List[ndarray] = []
 
+        if imgPklFilePath != "":
+            self.radius = 0.05
+            with open(imgPklFilePath, "rb") as pickle_file:
+                data = pickle.load(pickle_file)
+            self.image = data[0]
+            self.label = data[1]
+
         self.init()
 
     def init(self):
@@ -35,10 +43,9 @@ class Network:
             raise IOError
         self.initBounds()
         # 在mipverify中需要区间传播，所以不能注释掉这句话，Layer.py中使用带有上下界的编码
-        # self.intervalCompute()
+        # self.intervalPropation()
         # 在这里实现朴素符号传播，即ReLUval中的符号传播逻辑，并非venus中的符号传播
         self.symbolIntervalPropation()
-
         pass
 
 
@@ -46,16 +53,18 @@ class Network:
         net_model = load_model(self.networkFilePath, compile=False)
         self.layerNum = len(net_model.layers) + 1
         self.eachLayerNums.append(net_model.layers[0].get_weights()[0].shape[0])
-        self.inputLmodel = InputLayer(size=self.eachLayerNums[0])
-        for layer in net_model.layers:
+        self.inputLmodel = InputLayer(0, size=self.eachLayerNums[0])
+        for i, layer in enumerate(net_model.layers):
             if layer.activation == keras.activations.relu:
                 self.lmodel.append(ReluLayer(
+                    i+1,
                     layer.get_weights()[0].T,
                     layer.get_weights()[1],
                     layer_type="relu",
                 ))
             elif layer.activation == keras.activations.linear:
                 self.lmodel.append(LinearLayer(
+                    i+1,
                     layer.get_weights()[0].T,
                     layer.get_weights()[1],
                     layer_type="linear"
@@ -67,13 +76,20 @@ class Network:
             self.eachLayerNums.append(len(layer.get_weights()[1]))
         pass
 
-
     def initBounds(self):
-        res = getNormaliseInput(self.propertyIndexReadyToVerify)
-        self.inputLmodel.setBounds(res[0], res[1])
-        pass
+        if self.propertyIndexReadyToVerify != -1:
+            res = getNormaliseInput(self.propertyIndexReadyToVerify)
+            self.inputLmodel.setBounds(res[0], res[1])
+        else:
+            input_lower_bounds = np.maximum(self.image - self.radius, 0)
+            input_upper_bounds = np.minimum(self.image + self.radius, 1)
+            for i in range(len(input_upper_bounds)):
+                if input_upper_bounds[i] < input_lower_bounds[i]:
+                    print("Value Error in input bounds", i)
+            self.inputLmodel.setBounds(input_lower_bounds, input_upper_bounds)
+            pass
 
-    def intervalCompute(self):
+    def intervalPropation(self):
         preLayer_u = self.inputLmodel.var_bounds_out["ub"]
         preLayer_l = self.inputLmodel.var_bounds_out["lb"]
         for layer in self.lmodel:
@@ -90,27 +106,27 @@ class Network:
             layer.var_bounds_in["ub"] = u_hat + layer.bias
             layer.var_bounds_in["lb"] = l_hat + layer.bias
             if isinstance(layer, ReluLayer):
+                # 当当前层为ReLU时，out的边界要在in的基础上经过激活函数处理，注意max函数和maximum的区别
+                # max函数是在axis上取最大值，maximum是把arg1向量中的每一个数和对应的arg2向量中的每个数取最大值。
                 preLayer_u = layer.var_bounds_out["ub"] = np.maximum(layer.var_bounds_in["ub"], np.zeros(u_hat.shape))
                 preLayer_l = layer.var_bounds_out["lb"] = np.maximum(layer.var_bounds_in["lb"], np.zeros(l_hat.shape))
             elif isinstance(layer, LinearLayer):
+                # 如果当前层是linear层，则不需要经过ReLU激活函数
                 preLayer_u = layer.var_bounds_out["ub"] = layer.var_bounds_in["ub"]
                 preLayer_l = layer.var_bounds_out["lb"] = layer.var_bounds_in["lb"]
+            for i in range(len(layer.var_bounds_in["ub"])):
+                if layer.var_bounds_in["ub"][i] < layer.var_bounds_in["lb"][i]:
+                    raise Exception
 
     def symbolIntervalPropation(self):
         inputLayerSize = self.inputLmodel.size
         self.inputLmodel.bound_equations["out"]["lb"] = LinearFunctions(np.identity(inputLayerSize), np.zeros(inputLayerSize))
         self.inputLmodel.bound_equations["out"]["ub"] = LinearFunctions(np.identity(inputLayerSize), np.zeros(inputLayerSize))
 
-        for layerIdx in range(len(self.lmodel)):
-            if layerIdx == 0:
-                if isinstance(self.lmodel[layerIdx], ReluLayer):
-                    self.lmodel[layerIdx].compute_bounds_sia(self.inputLmodel, self.inputLmodel)
-            else:
-                if isinstance(self.lmodel[layerIdx], ReluLayer):
-                    self.lmodel[layerIdx].compute_bounds_sia(self.lmodel[layerIdx-1], self.inputLmodel)
-
-
-
+        preLayer = self.inputLmodel
+        for layer in self.lmodel:
+            layer.compute_Eq_and_bounds_sia(preLayer, self.inputLmodel)
+            preLayer = layer
 
     def readFromNnet(self):
         if self.networkFilePath == "":

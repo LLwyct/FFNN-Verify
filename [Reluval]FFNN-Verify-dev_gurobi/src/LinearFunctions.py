@@ -12,6 +12,10 @@ def compute_upper(weights_plus, weights_neg, input_lb, input_ub):
 
 class LinearFunctions:
     def __init__(self, matrix: ndarray, offset: ndarray):
+        """
+
+        :rtype: object
+        """
         self.size: int = matrix[0].size
         self.matrix: ndarray = matrix
         self.offset: ndarray = offset
@@ -50,7 +54,7 @@ class LinearFunctions:
         weights_neg = np.minimum(self.matrix, np.zeros(self.matrix.shape))
         return compute_upper(weights_plus, weights_neg, input_lower, input_upper) + self.offset'''
 
-    def getUpperOutEqThroughRelu(self, inputLayer):
+    '''def getUpperOutEqThroughRelu(self, inputLayer):
         lower = self.computeMinBoundsValue(inputLayer)
         upper = self.computeMaxBoundsValue(inputLayer)
         matrix = self.matrix
@@ -62,4 +66,4 @@ class LinearFunctions:
                 offset[i] = 0
             elif lower >= 0:
                 continue
-            else:
+            else:'''

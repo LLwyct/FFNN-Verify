@@ -48,6 +48,11 @@ class Solver:
                     lb = [-GRB.INFINITY for i in range(layer.size)]
                 else:
                     lb = layer_var_bounds["lb"]
+
+                for i in range(layer.size):
+                    if lb[i] > ub[i]:
+                        lb[i] = -99
+                        ub[i] = 99
                 self.indexToVar.append(
                     [
                         self.m.addVar(
@@ -148,9 +153,9 @@ class Solver:
         self.m.optimize()
         if self.m.status == GRB.OPTIMAL:
             print(">>>>>>>>>>unsat>>>>>>>>>>")
-            for i, X in enumerate(self.net.lmodel[-1].var):
-                print("y_" + str(i), X.x)
-            for i, X in enumerate(self.net.inputLmodel.var):
-                print("X_" + str(i), X.x)
+            #for i, X in enumerate(self.net.lmodel[-1].var):
+                #print("y_" + str(i), X.x)
+            #for i, X in enumerate(self.net.inputLmodel.var):
+                #print("X_" + str(i), X.x)
         else:
             print(">>>>>>>>>>>sat>>>>>>>>>>>")

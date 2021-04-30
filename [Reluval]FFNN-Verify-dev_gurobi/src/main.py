@@ -3,7 +3,8 @@ import argparse
 from options import Options
 from solverClass import Solver
 from networkClass import Network
-
+from gurobipy import GRB, quicksum
+import pickle
 
 def getOptions():
     parse = argparse.ArgumentParser()
@@ -55,29 +56,55 @@ def mainForOuterScript():
     solver.solve()
     print(networkFilePath)
 
-def mainForRun():
-    networkFileName = "acas_1_6.h5"
-    propertyFileName = "property_3.txt"
-    networkFilePath = os.path.abspath(os.path.join("../resources/Acas", networkFileName))
-    propertyFilePath = os.path.abspath(os.path.join("../resources", propertyFileName))
-    network = Network(networkFilePath, fmtType="h5", propertyReadyToVerify=3)
-    solver = Solver(network, propertyFilePath)
-    # 手动管理输出约束，输入约束在property.py中
-    solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[1])
-    solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[2])
-    solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[3])
-    solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[4])
-    solver.m.update()
+def mainForRun(type="acas"):
+    if type == "acas":
+        networkFileName = "acas_1_1.h5"
+        propertyFileName = "property_3.txt"
+        networkFilePath = os.path.abspath(os.path.join("../resources/Acas", networkFileName))
+        propertyFilePath = os.path.abspath(os.path.join("../resources", propertyFileName))
+        network = Network(networkFilePath, fmtType="h5", propertyReadyToVerify=3)
+        solver = Solver(network, propertyFilePath)
+        # 手动管理输出约束，输入约束在property.py中
+        solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[1])
+        solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[2])
+        solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[3])
+        solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[4])
+        solver.m.update()
+        solver.solve()
+        print(networkFileName)
+    else:
+        imgPklFileName = "im4.pkl"
+        networkFileName = "mnist-net.h5"
+        imgPklFilePath = os.path.abspath(os.path.join("../resources/Mnist/evaluation_images", imgPklFileName))
+        networkFilePath = os.path.abspath(os.path.join("../resources/Mnist", networkFileName))
+        network = Network(networkFilePath, fmtType="h5", imgPklFilePath=imgPklFilePath)
+        solver = Solver(network, "")
+        # 手动管理输出约束，输入约束在property.py中
+        oC = [solver.m.addVar(vtype=GRB.BINARY) for i in range(10)]
+        solver.m.update()
+        for i in range(10):
+            if i == network.label:
+                solver.m.remove(oC[i])
+                continue
+            else:
+                solver.m.addConstr((oC[i] == 1) >> (network.lmodel[-1].var[i] >= network.lmodel[-1].var[network.label]))
+        solver.m.update()
+        del oC[network.label]
+        solver.m.addConstr(quicksum(oC) <= 9)
+        solver.m.update()
+        solver.solve()
+        print(networkFileName)
+
     '''
     gurobi已经提供了关于容忍误差，所以此处不需要考虑舍入问题
     '''
     # solver.m.setObjective()
-    solver.solve()
-    print(networkFileName)
+
 
 if __name__ == "__main__":
     # 默认作为脚本使用，如为了方便测试可以使用mainForRun
-    mainForRun()
+    # ["mnist", "acas"]
+    mainForRun(type="acas")
     # mainForOuterScript()
 
 
