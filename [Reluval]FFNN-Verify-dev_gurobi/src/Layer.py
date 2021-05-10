@@ -111,16 +111,9 @@ class Layer:
                 newLowOffset[i] = 0
                 # 上界按情况判断
                 if UPEqLower[i] < 0:
-                    pass
-                    #adj = UPEqUpper[i] / (UPEqUpper[i] - UPEqLower[i])
-                    #newUpMatrix[i, :] = newUpMatrix[i, :] * adj
-                    #newUpOffset[i] = newUpOffset[i] * adj - adj * newUpOffset[i]
-                    # pass
                     # 如果上界有可能小于0
-                    #newUpMatrix[i, :] = 0
-                    #newUpOffset[i] = 0
-                    # newUpMatrix[i, :][-1] = lastMatrix
-                    # newUpOffset[i] = lastOffset
+                    newUpMatrix[i, :] = 0
+                    newUpOffset[i] = UPEqUpper[i]
 
 
         return {

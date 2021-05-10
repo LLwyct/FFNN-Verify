@@ -73,7 +73,7 @@ def mainForRun(type="acas"):
         solver.solve()
         print(networkFileName)
     else:
-        imgPklFileName = "im4.pkl"
+        imgPklFileName = "im2.pkl"
         networkFileName = "mnist-net.h5"
         imgPklFilePath = os.path.abspath(os.path.join("../resources/Mnist/evaluation_images", imgPklFileName))
         networkFilePath = os.path.abspath(os.path.join("../resources/Mnist", networkFileName))
@@ -91,6 +91,7 @@ def mainForRun(type="acas"):
         solver.m.update()
         del oC[network.label]
         solver.m.addConstr(quicksum(oC) <= 9)
+        solver.m.addConstr(quicksum(oC) >= 1)
         solver.m.update()
         solver.solve()
         print(networkFileName)
@@ -104,8 +105,5 @@ def mainForRun(type="acas"):
 if __name__ == "__main__":
     # 默认作为脚本使用，如为了方便测试可以使用mainForRun
     # ["mnist", "acas"]
-    mainForRun(type="acas")
+    mainForRun(type="mnist")
     # mainForOuterScript()
-
-
-
