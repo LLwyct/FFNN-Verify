@@ -94,7 +94,7 @@ def mainForRun(type="acas"):
         solver.m.addConstr(quicksum(oC) >= 1)
         solver.m.update()
         solver.solve()
-        print(networkFileName)
+        print(imgPklFileName)
 
     '''
     gurobi已经提供了关于容忍误差，所以此处不需要考虑舍入问题
@@ -105,5 +105,5 @@ def mainForRun(type="acas"):
 if __name__ == "__main__":
     # 默认作为脚本使用，如为了方便测试可以使用mainForRun
     # ["mnist", "acas"]
-    mainForRun(type="mnist")
+    mainForRun(type="acas")
     # mainForOuterScript()

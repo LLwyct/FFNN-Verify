@@ -115,7 +115,6 @@ class Layer:
                     newUpMatrix[i, :] = 0
                     newUpOffset[i] = UPEqUpper[i]
 
-
         return {
             "ub": LinearFunctions(newUpMatrix, newUpOffset),
             "lb": LinearFunctions(newLowMatrix, newLowOffset)
