@@ -5,20 +5,21 @@ from keras import Model
 
 if __name__ == "__main__":
     input = [
-        -0.30353115613746867,
-        0.009139156821477343,
-        0.4933803235848431,
-        0.3,
-        0.34368909377181106
+        [
+            -0.30353115613746867,
+            0.009139156821477343,
+            0.4933803235848431,
+            0.3,
+            0.34368909377181106
+        ]
     ]
 
-    networkFileName = "acas_1_6.h5"
+    networkFileName = "acas_1_7.h5"
     networkFilePath = os.path.abspath(os.path.join("../../resources/Acas", networkFileName))
     print(networkFilePath)
     model = load_model(networkFilePath)
-    assert isinstance(model, Model)
-    model.predict(np.array(input))
-
+    Y = model.predict(np.array(input))
+    print(Y)
     '''
     y_0 -0.00829189424779031
     y_1 -0.008291894247792938

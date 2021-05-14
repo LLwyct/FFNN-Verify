@@ -56,9 +56,9 @@ def mainForOuterScript():
     solver.solve()
     print(networkFilePath)
 
-def mainForRun(type="acas"):
+def mainForRun(case, type="acas"):
     if type == "acas":
-        networkFileName = "acas_1_1.h5"
+        networkFileName = "acas_1_{}.h5".format(case)
         propertyFileName = "property_3.txt"
         networkFilePath = os.path.abspath(os.path.join("../resources/Acas", networkFileName))
         propertyFilePath = os.path.abspath(os.path.join("../resources", propertyFileName))
@@ -73,7 +73,7 @@ def mainForRun(type="acas"):
         solver.solve()
         print(networkFileName)
     else:
-        imgPklFileName = "im2.pkl"
+        imgPklFileName = "im{}.pkl".format(case)
         networkFileName = "mnist-net.h5"
         imgPklFilePath = os.path.abspath(os.path.join("../resources/Mnist/evaluation_images", imgPklFileName))
         networkFilePath = os.path.abspath(os.path.join("../resources/Mnist", networkFileName))
@@ -105,5 +105,6 @@ def mainForRun(type="acas"):
 if __name__ == "__main__":
     # 默认作为脚本使用，如为了方便测试可以使用mainForRun
     # ["mnist", "acas"]
-    mainForRun(type="acas")
+    for i in range(1, 10):
+        mainForRun(i, type="acas")
     # mainForOuterScript()

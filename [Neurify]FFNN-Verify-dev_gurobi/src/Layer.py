@@ -120,6 +120,61 @@ class Layer:
             "lb": LinearFunctions(newLowMatrix, newLowOffset)
         }
 
+    def _compute_out_bounds_slr_Eqs(self, Eqin, inputLayer):
+        '''return {
+                    "ub": Eqin["ub"].getUpperOutEqThroughRelu(inputLayer),
+                    "lb": Eqin["lb"].getLowerOutEqThroughRelu(inputLayer)
+                }'''
+        inUPEq: LinearFunctions = Eqin["ub"]
+        inLOWEq: LinearFunctions = Eqin["lb"]
+
+        # 先获得一份未来用于构造函数参数的拷贝
+        newUpMatrix = inUPEq.matrix.copy()
+        newUpOffset = inUPEq.offset.copy()
+
+        newLowMatrix = inLOWEq.matrix.copy()
+        newLowOffset = inLOWEq.offset.copy()
+
+        # 对UpEq分别调用MaxBoundsValue和MinBoundsValue
+        # 这个和main的part2的1式相同，是上界的上界
+        UPEqUpper = inUPEq.computeMaxBoundsValue(inputLayer)
+        # 是上界的下界
+        UPEqLower = inUPEq.computeMinBoundsValue(inputLayer)
+
+        # 对LowEq分别调用MaxBoundsValue和MinBoundsValue
+        # 是下界的上界
+        LOWEqUpper = inLOWEq.computeMaxBoundsValue(inputLayer)
+        # 这个和main的part2的2式相同，是下界的下界
+        LOWEqLower = inLOWEq.computeMinBoundsValue(inputLayer)
+
+        for i in range(self.size):
+            if UPEqUpper[i] <= 0:
+                # 如果上界的上界都小于0了，那么出边的Eq的上下界都为0
+                newUpMatrix[i, :] = +0
+                newUpOffset[i] = +0
+            elif UPEqLower[i] >= 0:
+                # activate node 否则什么都不做
+                continue
+            else:
+                adj = UPEqUpper[i] / (UPEqUpper[i] - UPEqLower[i])
+                newUpMatrix[i, :] = adj * newUpMatrix[i, :]
+                newUpOffset[i] = adj * newUpOffset[i] - adj * UPEqLower[i]
+
+            if LOWEqUpper[i] <= 0:
+                newLowMatrix[i, :] = +0
+                newLowOffset[i] = +0
+            elif LOWEqLower[i] >= 0:
+                continue
+            else:
+                adj = LOWEqUpper[i] / (LOWEqUpper[i] - LOWEqLower[i])
+                newLowMatrix[i,:] = adj * newLowMatrix[i,:]
+                newLowOffset[i] = adj * newLowOffset[i]
+
+        return {
+            "ub": LinearFunctions(newUpMatrix, newUpOffset),
+            "lb": LinearFunctions(newLowMatrix, newLowOffset)
+        }
+
 class InputLayer(Layer):
     def __init__(self, id, layer_type="input", size=0):
         super(InputLayer, self).__init__(id, layer_type)
@@ -245,9 +300,9 @@ class ReluLayer(Layer):
         self.var_bounds_out["ub"] = self.bound_equations["out"]["ub"].computeMaxBoundsValue(inputLayer)
         self.var_bounds_out["lb"] = self.bound_equations["out"]["lb"].computeMinBoundsValue(inputLayer)
 
-        for i in range(self.size):
-            if self.var_bounds_out["ub"][i] == 0:
-                self.var_bounds_out["ub"][i] = self.var_bounds_in["ub"][i]
+        #for i in range(self.size):
+        #    if self.var_bounds_out["ub"][i] == 0:
+        #        self.var_bounds_out["ub"][i] = self.var_bounds_in["ub"][i]
 
         self.var_bounds_out['ub'] = np.maximum(self.var_bounds_out['ub'], 0)
         self.var_bounds_out['lb'] = np.maximum(self.var_bounds_out['lb'], 0)
