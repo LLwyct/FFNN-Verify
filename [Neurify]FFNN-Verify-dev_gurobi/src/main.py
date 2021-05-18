@@ -15,7 +15,7 @@ def getOptions():
     )
     parse.add_argument(
         "--type",
-        choices=["rea", "rob"],
+        choices=["acas", "mnist"],
         default="rea",
         help="which type of property will be verified"
     )
@@ -34,21 +34,7 @@ def mainForOuterScript():
     networkFilePath = os.path.abspath(os.path.join("../resources", options.netPath))
     propertyFilePath = os.path.abspath(os.path.join("../resources"))
     network = Network(networkFilePath, fmtType="h5", propertyReadyToVerify=options.property)
-    solver = Solver(network, propertyFilePath)
-    '''
-    手动管理输出约束 for property 3，不应该输出COC，即Y[0]
-    在acas中，输出越小，期望越高
-    因此应该编写的反例即为COC期望最高（值最小）
-    y0 < y1
-    y0 < y2
-    y0 < y3
-    y0 < y4
-    '''
-    solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[1])
-    solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[2])
-    solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[3])
-    solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[4])
-    solver.m.update()
+    solver = Solver(network)
     # end
     '''
     gurobi已经提供了关于容忍误差，所以此处不需要考虑舍入问题
@@ -56,29 +42,21 @@ def mainForOuterScript():
     solver.solve()
     print(networkFilePath)
 
-def mainForRun(case, type="acas"):
-    if type == "acas":
+def mainForRun(case, verifyType="acas"):
+    if verifyType == "acas":
         networkFileName = "acas_1_{}.h5".format(case)
-        propertyFileName = "property_3.txt"
         networkFilePath = os.path.abspath(os.path.join("../resources/Acas", networkFileName))
-        propertyFilePath = os.path.abspath(os.path.join("../resources", propertyFileName))
-        network = Network(networkFilePath, fmtType="h5", propertyReadyToVerify=3)
-        solver = Solver(network, propertyFilePath)
-        # 手动管理输出约束，输入约束在property.py中
-        solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[1])
-        solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[2])
-        solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[3])
-        solver.m.addConstr(network.lmodel[-1].var[0] <= network.lmodel[-1].var[4])
-        solver.m.update()
-        solver.solve()
+        network = Network(networkFilePath, fmtType="h5", propertyReadyToVerify=5, verifyType="acas")
+        solver = Solver(network)
+        solver.solve(verifyType)
         print(networkFileName)
-    else:
+    elif verifyType == "mnist":
         imgPklFileName = "im{}.pkl".format(case)
         networkFileName = "mnist-net.h5"
         imgPklFilePath = os.path.abspath(os.path.join("../resources/Mnist/evaluation_images", imgPklFileName))
         networkFilePath = os.path.abspath(os.path.join("../resources/Mnist", networkFileName))
-        network = Network(networkFilePath, fmtType="h5", imgPklFilePath=imgPklFilePath)
-        solver = Solver(network, "")
+        network = Network(networkFilePath, fmtType="h5", imgPklFilePath=imgPklFilePath, verifyType="mnist")
+        solver = Solver(network)
         # 手动管理输出约束，输入约束在property.py中
         oC = [solver.m.addVar(vtype=GRB.BINARY) for i in range(10)]
         solver.m.update()
@@ -93,7 +71,7 @@ def mainForRun(case, type="acas"):
         solver.m.addConstr(quicksum(oC) <= 9)
         solver.m.addConstr(quicksum(oC) >= 1)
         solver.m.update()
-        solver.solve()
+        solver.solve(type)
         print(imgPklFileName)
 
     '''
@@ -106,5 +84,5 @@ if __name__ == "__main__":
     # 默认作为脚本使用，如为了方便测试可以使用mainForRun
     # ["mnist", "acas"]
     for i in range(1, 10):
-        mainForRun(i, type="acas")
+        mainForRun(i, verifyType="acas")
     # mainForOuterScript()

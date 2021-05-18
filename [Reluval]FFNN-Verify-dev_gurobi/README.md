@@ -28,7 +28,7 @@ python main.py --npath /Acas/acas_1_1.h5 --type rea --prop 3
 |arg | description | example|
 |:---:|:---:|:---:|
 |--npath |神经网络文件的路径，以resources为根目录 | `/Acas/acas_1_1.h5`|
-|--type | 验证属性的类型，可达性或局部鲁棒性，暂时只支持可达性验证 | `rea`|
+|--type | 验证属性的类型，可达性或局部鲁棒性，暂时只支持可达性验证 | `acas`|
 |--prop | 针对ACAS XU的属性验证，从1到10 | `3` |
 
 验证结果：
@@ -44,3 +44,5 @@ python main.py --npath /Acas/acas_1_1.h5 --type rea --prop 3
 | acas_1_7.h5 | `unsat` |
 | acas_1_8.h5 | `unsat` |
 | acas_1_9.h5 | `unsat` |
+
+本项目相比于`[MIPVerify]`版本，使用且仅使用了符号传播技术。对比于ReLuVal原文，并没有结合区间分割的优化手段。

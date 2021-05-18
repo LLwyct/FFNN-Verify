@@ -27,7 +27,7 @@ python main.py --npath /Acas/acas_1_1.h5 --type rea --prop 3
 |arg | description | example|
 |:---:|:---:|:---:|
 |--npath |神经网络文件的路径，以resources为根目录 | `/Acas/acas_1_1.h5`|
-|--type | 验证属性的类型，可达性或局部鲁棒性，暂时只支持可达性验证 | `rea`|
+|--type | 验证属性的类型，可达性或局部鲁棒性，暂时只支持可达性验证 | `acas`|
 |--prop | 针对ACAS XU的属性验证，从1到10 | `3` |
 
 验证结果：
@@ -43,3 +43,5 @@ python main.py --npath /Acas/acas_1_1.h5 --type rea --prop 3
 | acas_1_7.h5 | `unsat` |
 | acas_1_8.h5 | `unsat` |
 | acas_1_9.h5 | `unsat` |
+
+本项目未采用任何优化手段，仅使用bigM下的 milp编码

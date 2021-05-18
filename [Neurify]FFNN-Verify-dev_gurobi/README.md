@@ -4,6 +4,9 @@
 - [FFNN-Verify](#ffnn-verify)
   - [1.1. dependence：](#11-dependence)
   - [1.2. example:](#12-example)
+- [文件说明](#文件说明)
+  - [v4.0](#v40)
+  - [v4.1](#v41)
 
 ---
 
@@ -54,3 +57,36 @@ python main.py --npath /Acas/acas_1_1.h5 --type rea --prop 3
 之前直接在 `out_bounds['ub']` 中取最大值作为区间的最大上界maxb，同理在 `out_bounds['lb']` 中取最小值作为区间的最小下界minb。该思路本意为判定bigM的具体值而考虑的，其中`M=max(|maxb|,|minb|)`。
 
 看来现如今继续使用该思路与来判断边界的束紧程度不合适，因为有可能存在个别节点提供了非常大的上界或下界，但其实更多节点的束紧程度是增加了的。因此出现了上述奇怪的行为。
+
+## v4.1
+这一次的更新，大量重构了之前的代码，减少了大量的冗余代码，添加了大量注释，减少了垃圾代码，提高了模块间的可复用性。并且实现了任意输出约束的自动添加，不必再为不同待验证属性手动添加输出约束。
+
+- 添加了`ConstraintFormula`类，分为析取约束和合取约束
+- 在`Layer.py`中删除了大量之前为了方便，添加的冗余代码
+- 由于输出约束自动添加，在`Layer.py`中删除了大量冗余代码
+- 输入约束在`property.py`写入，并由`initBounds` 函数添加，因此删除了大量冗余代码
+- 为之前每个文件提供了README文件，并展示每一代的优化说明
+
+在最新的此版本中，对于不同优化方案在`netWorkClass.py`中进行整合：
+
+```python
+# 初始化/预处理隐藏层及输出层的边界
+# 0 MILP with bigM
+# 1 MILP with ia  区间传播
+# 2 MILP with sia 符号区间传播
+# 4 MILP with slr 符号线性松弛
+if GlobalSetting.preSolveMethod == 0:
+    pass
+elif GlobalSetting.preSolveMethod == 1:
+    self.intervalPropation()
+elif GlobalSetting.preSolveMethod == 2:
+    self.symbolIntervalPropation_0sia_or_1slr(0)
+elif GlobalSetting.preSolveMethod == 4:
+    self.symbolIntervalPropation_0sia_or_1slr(1)
+```
+
+下一步的更新计划：
+
+- bigM的M的大小在哪里预给出还没有说明
+- 优化确定边界束紧程度的判断逻辑，该问题在v4.0的更新中提出，尚未解决
+- 同上一点，一样需要加一些输出来表现该优化的提升在哪里的具体的数据化展示，之前虽然有做，但是我认为并不能直接在论文中使用，不够细节

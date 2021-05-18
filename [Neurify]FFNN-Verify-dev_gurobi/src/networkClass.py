@@ -7,9 +7,10 @@ from numpy import ndarray
 from keras.models import load_model
 from property import getNormaliseInput
 from LinearFunctions import LinearFunctions
+from options import GlobalSetting
 
 class Network:
-    def __init__(self, path="", fmtType="h5", propertyReadyToVerify=-1, imgPklFilePath=""):
+    def __init__(self, path="", fmtType="h5", propertyReadyToVerify=-1, imgPklFilePath="", verifyType="acas"):
         self.networkFilePath: str = path
         self.netFmtType: str = fmtType
         self.propertyIndexReadyToVerify: int = propertyReadyToVerify
@@ -22,16 +23,16 @@ class Network:
         当计算第i层第j个节点的值时，使用向量weight[i] * x_{i-1}
         '''
         self.weights: List[ndarray] = []
-
         self.biases: List[ndarray] = []
 
-        if imgPklFilePath != "":
+        if verifyType == "mnist":
+            if imgPklFilePath == "":
+                raise Exception("未提供mnist类型验证所需图片文件路径")
             self.radius = 0.05
             with open(imgPklFilePath, "rb") as pickle_file:
                 data = pickle.load(pickle_file)
             self.image = data[0]
             self.label = data[1]
-
         self.init()
 
     def init(self):
@@ -41,53 +42,36 @@ class Network:
             self.readFromH5()
         else:
             raise IOError
+        # 初始化/预计算每一层，包括输入层，隐藏层，输出层的边界
         self.initBounds()
-        # 在mipverify中需要区间传播，所以不能注释掉这句话，Layer.py中使用带有上下界的编码
-        # self.intervalPropation()
-        # 在这里实现朴素符号传播，即ReLUval中的符号传播逻辑，并非venus中的符号传播
-        self.symbolIntervalPropation()
-        pass
-
-
-    def readFromH5(self):
-        net_model = load_model(self.networkFilePath, compile=False)
-        self.layerNum = len(net_model.layers) + 1
-        self.eachLayerNums.append(net_model.layers[0].get_weights()[0].shape[0])
-        self.inputLmodel = InputLayer(0, size=self.eachLayerNums[0])
-        for i, layer in enumerate(net_model.layers):
-            if layer.activation == keras.activations.relu:
-                self.lmodel.append(ReluLayer(
-                    i+1,
-                    layer.get_weights()[0].T,
-                    layer.get_weights()[1],
-                    layer_type="relu",
-                ))
-            elif layer.activation == keras.activations.linear:
-                self.lmodel.append(LinearLayer(
-                    i+1,
-                    layer.get_weights()[0].T,
-                    layer.get_weights()[1],
-                    layer_type="linear"
-                ))
-            else:
-                raise IOError
-            self.weights.append(layer.get_weights()[0].T)
-            self.biases.append(layer.get_weights()[1])
-            self.eachLayerNums.append(len(layer.get_weights()[1]))
-        pass
 
     def initBounds(self):
         if self.propertyIndexReadyToVerify != -1:
+            # 初始化acasxu类型输入层的边界
             res = getNormaliseInput(self.propertyIndexReadyToVerify)
             self.inputLmodel.setBounds(res[0], res[1])
         else:
+            # 初始化mnist类型输入层的边界
             input_lower_bounds = np.maximum(self.image - self.radius, 0)
             input_upper_bounds = np.minimum(self.image + self.radius, 1)
             for i in range(len(input_upper_bounds)):
                 if input_upper_bounds[i] < input_lower_bounds[i]:
                     print("Value Error in input bounds", i)
             self.inputLmodel.setBounds(input_lower_bounds, input_upper_bounds)
+
+        # 初始化/预处理隐藏层及输出层的边界
+        # 0 MILP with bigM
+        # 1 MILP with ia  区间传播
+        # 2 MILP with sia 符号区间传播
+        # 4 MILP with slr 符号线性松弛
+        if GlobalSetting.preSolveMethod == 0:
             pass
+        elif GlobalSetting.preSolveMethod == 1:
+            self.intervalPropation()
+        elif GlobalSetting.preSolveMethod == 2:
+            self.symbolIntervalPropation_0sia_or_1slr(0)
+        elif GlobalSetting.preSolveMethod == 4:
+            self.symbolIntervalPropation_0sia_or_1slr(1)
 
     def intervalPropation(self):
         preLayer_u = self.inputLmodel.var_bounds_out["ub"]
@@ -118,14 +102,19 @@ class Network:
                 if layer.var_bounds_in["ub"][i] < layer.var_bounds_in["lb"][i]:
                     raise Exception
 
-    def symbolIntervalPropation(self):
+    def symbolIntervalPropation_0sia_or_1slr(self, method):
         inputLayerSize = self.inputLmodel.size
         self.inputLmodel.bound_equations["out"]["lb"] = LinearFunctions(np.identity(inputLayerSize), np.zeros(inputLayerSize))
         self.inputLmodel.bound_equations["out"]["ub"] = LinearFunctions(np.identity(inputLayerSize), np.zeros(inputLayerSize))
 
         preLayer = self.inputLmodel
         for layer in self.lmodel:
-            layer.compute_Eq_and_bounds_sia(preLayer, self.inputLmodel)
+            if layer.type == "relu":
+                assert isinstance(layer, ReluLayer)
+                layer.compute_Eq_and_bounds_0sia_or_1slr(preLayer, self.inputLmodel, method)
+            elif layer.type == "linear":
+                assert isinstance(layer, LinearLayer)
+                layer.compute_Eq_and_bounds(preLayer, self.inputLmodel)
             preLayer = layer
 
     def readFromNnet(self):
@@ -175,3 +164,29 @@ class Network:
                     bias.append(float(biasLine))
                 self.biases[layer] = np.array(bias, dtype=float)
 
+    def readFromH5(self):
+        net_model = load_model(self.networkFilePath, compile=False)
+        self.layerNum = len(net_model.layers) + 1
+        self.eachLayerNums.append(net_model.layers[0].get_weights()[0].shape[0])
+        self.inputLmodel = InputLayer(0, size=self.eachLayerNums[0])
+        for i, layer in enumerate(net_model.layers):
+            if layer.activation == keras.activations.relu:
+                self.lmodel.append(ReluLayer(
+                    i+1,
+                    layer.get_weights()[0].T,
+                    layer.get_weights()[1],
+                    layer_type="relu",
+                ))
+            elif layer.activation == keras.activations.linear:
+                self.lmodel.append(LinearLayer(
+                    i+1,
+                    layer.get_weights()[0].T,
+                    layer.get_weights()[1],
+                    layer_type="linear"
+                ))
+            else:
+                raise IOError
+            self.weights.append(layer.get_weights()[0].T)
+            self.biases.append(layer.get_weights()[1])
+            self.eachLayerNums.append(len(layer.get_weights()[1]))
+        pass

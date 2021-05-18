@@ -66,7 +66,7 @@ class Layer:
             "lb": LinearFunctions(lowerMatrix, lowerConst)
         }
 
-    def _compute_out_bounds_sia_Eqs(self, Eqin, inputLayer):
+    def _compute_out_bounds_0sia_or_1slr_Eqs(self, Eqin, inputLayer, method):
         '''return {
             "ub": Eqin["ub"].getUpperOutEqThroughRelu(inputLayer),
             "lb": Eqin["lb"].getLowerOutEqThroughRelu(inputLayer)
@@ -93,82 +93,53 @@ class Layer:
         # 这个和main的part2的2式相同，是下界的下界
         LOWEqLower = inLOWEq.computeMinBoundsValue(inputLayer)
 
-        for i in range(self.size):
-            if UPEqUpper[i] <= 0:
-                # 如果上界的上界都小于0了，那么出边的Eq的上下界都为0
-                newUpMatrix[i,:] = 0
-                newUpOffset[i] = 0
-                newLowMatrix[i, :] = 0
-                newLowOffset[i] = 0
-            elif LOWEqLower[i] >= 0:
-                # 否则什么都不做
-                continue
-            else:
-                #lastMatrix = newUpMatrix[i,:][-1]
-                #lastOffset = newUpOffset[i]
-                # 如果处于位置状态，首先下界的Eq置为0
-                newLowMatrix[i,:] = 0
-                newLowOffset[i] = 0
-                # 上界按情况判断
-                if UPEqLower[i] < 0:
-                    # 如果上界有可能小于0
-                    newUpMatrix[i, :] = 0
-                    newUpOffset[i] = UPEqUpper[i]
+        # 0:sia 1:slr
+        if method == 0:
+            for i in range(self.size):
+                if UPEqUpper[i] <= 0:
+                    # 如果上界的上界都小于0了，那么出边的Eq的上下界都为0
+                    newUpMatrix[i,:] = 0
+                    newUpOffset[i] = 0
+                    newLowMatrix[i, :] = 0
+                    newLowOffset[i] = 0
+                elif LOWEqLower[i] >= 0:
+                    # 否则什么都不做
+                    continue
+                else:
+                    #lastMatrix = newUpMatrix[i,:][-1]
+                    #lastOffset = newUpOffset[i]
+                    # 如果处于位置状态，首先下界的Eq置为0
+                    newLowMatrix[i,:] = 0
+                    newLowOffset[i] = 0
+                    # 上界按情况判断
+                    if UPEqLower[i] < 0:
+                        # 如果上界有可能小于0
+                        newUpMatrix[i, :] = 0
+                        newUpOffset[i] = UPEqUpper[i]
+        # slr
+        elif method == 1:
+            for i in range(self.size):
+                if UPEqUpper[i] <= 0:
+                    # 如果上界的上界都小于0了，那么出边的Eq的上下界都为0
+                    newUpMatrix[i, :] = +0
+                    newUpOffset[i] = +0
+                elif UPEqLower[i] >= 0:
+                    # activate node 否则什么都不做
+                    continue
+                else:
+                    adj = UPEqUpper[i] / (UPEqUpper[i] - UPEqLower[i])
+                    newUpMatrix[i, :] = adj * newUpMatrix[i, :]
+                    newUpOffset[i] = adj * newUpOffset[i] - adj * UPEqLower[i]
 
-        return {
-            "ub": LinearFunctions(newUpMatrix, newUpOffset),
-            "lb": LinearFunctions(newLowMatrix, newLowOffset)
-        }
-
-    def _compute_out_bounds_slr_Eqs(self, Eqin, inputLayer):
-        '''return {
-                    "ub": Eqin["ub"].getUpperOutEqThroughRelu(inputLayer),
-                    "lb": Eqin["lb"].getLowerOutEqThroughRelu(inputLayer)
-                }'''
-        inUPEq: LinearFunctions = Eqin["ub"]
-        inLOWEq: LinearFunctions = Eqin["lb"]
-
-        # 先获得一份未来用于构造函数参数的拷贝
-        newUpMatrix = inUPEq.matrix.copy()
-        newUpOffset = inUPEq.offset.copy()
-
-        newLowMatrix = inLOWEq.matrix.copy()
-        newLowOffset = inLOWEq.offset.copy()
-
-        # 对UpEq分别调用MaxBoundsValue和MinBoundsValue
-        # 这个和main的part2的1式相同，是上界的上界
-        UPEqUpper = inUPEq.computeMaxBoundsValue(inputLayer)
-        # 是上界的下界
-        UPEqLower = inUPEq.computeMinBoundsValue(inputLayer)
-
-        # 对LowEq分别调用MaxBoundsValue和MinBoundsValue
-        # 是下界的上界
-        LOWEqUpper = inLOWEq.computeMaxBoundsValue(inputLayer)
-        # 这个和main的part2的2式相同，是下界的下界
-        LOWEqLower = inLOWEq.computeMinBoundsValue(inputLayer)
-
-        for i in range(self.size):
-            if UPEqUpper[i] <= 0:
-                # 如果上界的上界都小于0了，那么出边的Eq的上下界都为0
-                newUpMatrix[i, :] = +0
-                newUpOffset[i] = +0
-            elif UPEqLower[i] >= 0:
-                # activate node 否则什么都不做
-                continue
-            else:
-                adj = UPEqUpper[i] / (UPEqUpper[i] - UPEqLower[i])
-                newUpMatrix[i, :] = adj * newUpMatrix[i, :]
-                newUpOffset[i] = adj * newUpOffset[i] - adj * UPEqLower[i]
-
-            if LOWEqUpper[i] <= 0:
-                newLowMatrix[i, :] = +0
-                newLowOffset[i] = +0
-            elif LOWEqLower[i] >= 0:
-                continue
-            else:
-                adj = LOWEqUpper[i] / (LOWEqUpper[i] - LOWEqLower[i])
-                newLowMatrix[i,:] = adj * newLowMatrix[i,:]
-                newLowOffset[i] = adj * newLowOffset[i]
+                if LOWEqUpper[i] <= 0:
+                    newLowMatrix[i, :] = +0
+                    newLowOffset[i] = +0
+                elif LOWEqLower[i] >= 0:
+                    continue
+                else:
+                    adj = LOWEqUpper[i] / (LOWEqUpper[i] - LOWEqLower[i])
+                    newLowMatrix[i, :] = adj * newLowMatrix[i, :]
+                    newLowOffset[i] = adj * newLowOffset[i]
 
         return {
             "ub": LinearFunctions(newUpMatrix, newUpOffset),
@@ -185,12 +156,6 @@ class InputLayer(Layer):
         self.var_bounds_in["ub"] = self.var_bounds_out["ub"] = ub
         self.var_bounds_in["lb"] = self.var_bounds_out["lb"] = lb
 
-class OutputLayer(Layer):
-    def __init__(self, layer_type="output", size=0):
-        super(OutputLayer, self).__init__(layer_type)
-        self.type = layer_type
-        self.size = size
-
 class ReluLayer(Layer):
     def __init__(self, id, w: ndarray, b: ndarray, layer_type: str = "relu"):
         super(ReluLayer, self).__init__(id, layer_type)
@@ -200,14 +165,15 @@ class ReluLayer(Layer):
         self.bias:      ndarray = b
         self.reluVar:   ndarray = np.empty(self.size)
 
-    def addConstr(self, preLayer: Layer, gmodel: Model):
+    def addConstr(self, preLayer: Layer, gmodel: Model, constrMethod: int):
         wx_add_b = np.dot(self.weight, preLayer.var) + self.bias
-        if GlobalSetting.constrMethod == 0:
+        constrMethod = GlobalSetting.constrMethod if constrMethod == -1 else constrMethod
+        if constrMethod == 0:
             '''
-            0代表使用带激活变量的精确松弛
+            0代表使用带激活变量的精确约束MILP
             1代表使用三角松弛
             '''
-            # 这个变量用于计算区间传播所带来的边界束紧，对于每一层分别减少了多少binary变量
+            # 这个变量用于计算各种边界预处理方法（区间传播、符号传播、符号线性松弛等）所带来的边界束紧，对于每一层分别减少了多少binary变量
             ignoreBinaryVarNum = 0
             # 用这两个变量来测试并打印在区间传播的过程中，每一隐藏层Relu节点输入的上界的最大值和下界的最小值，从而判断自定义的M是否满足要求。
             maxUpper = -999
@@ -243,7 +209,11 @@ class ReluLayer(Layer):
             print(self.type, self.size, ignoreBinaryVarNum)
             print('maxupper', maxUpper)
             print('minLower', minLower)
-        elif GlobalSetting.constrMethod == 1:
+        elif constrMethod == 1:
+            '''
+            0代表使用带激活变量的精确约束MILP
+            1代表使用三角松弛
+            '''
             for curNodeIdx, curNode in enumerate(self.var):
                 if self.var_bounds_in["lb"][curNodeIdx] >= 0:
                     gmodel.addConstr(curNode == wx_add_b[curNodeIdx])
@@ -273,7 +243,8 @@ class ReluLayer(Layer):
         else:
             pass
 
-    def compute_Eq_and_bounds_sia(self, preLayer: Layer, inputLayer: InputLayer):
+    # 该函数用于计算在符号传播或符号线性松弛等预计算过程中每一层的Eqution以及具体边界的传播情况
+    def compute_Eq_and_bounds_0sia_or_1slr(self, preLayer: Layer, inputLayer: InputLayer, method: int):
         # 主函数，用于计算符号传播
         # part1：计算当前层输入的Eq
         self.bound_equations["in"] = self._compute_in_bounds_sia_Eqs(
@@ -289,9 +260,10 @@ class ReluLayer(Layer):
 
 
         # part3：计算输出的Eq，与part1对应
-        self.bound_equations["out"] = self._compute_out_bounds_sia_Eqs(
+        self.bound_equations["out"] = self._compute_out_bounds_0sia_or_1slr_Eqs(
             self.bound_equations["in"],
-            inputLayer
+            inputLayer,
+            method
         )
 
         # part4：
@@ -308,6 +280,7 @@ class ReluLayer(Layer):
         self.var_bounds_out['lb'] = np.maximum(self.var_bounds_out['lb'], 0)
         self.computeBoundsError()
 
+    # 计算在符号传播或符号线性松弛等预计算过程中是否出现下界大于上界的情况
     def computeBoundsError(self):
         num = 0
         for i in range(len(self.var_bounds_in["ub"])):
@@ -332,13 +305,13 @@ class LinearLayer(Layer):
         self.weight:    ndarray = w
         self.bias:      ndarray = b
 
-    def addConstr(self, preLayer, gmodel: Model):
+    def addConstr(self, preLayer, gmodel: Model, constrMethod):
         if GlobalSetting.constrMethod == 0 or GlobalSetting.constrMethod == 1:
             wx_add_b = np.dot(self.weight, preLayer.var) + self.bias
             for curNodeIdx, curNode in enumerate(self.var):
                 gmodel.addConstr(curNode == wx_add_b[curNodeIdx])
 
-    def compute_Eq_and_bounds_sia(self, preLayer, inputLayer):
+    def compute_Eq_and_bounds(self, preLayer, inputLayer):
         # 这里因为对于Linear层，in和out是一样的，所以我们直接使用in的函数结果返回给out，因为在利用区间的值赋值给M的时候，只需要out不需要in
         self.bound_equations["in"] = self.bound_equations["out"] = self._compute_in_bounds_sia_Eqs(
             preLayer.bound_equations["out"]["ub"],
@@ -346,3 +319,9 @@ class LinearLayer(Layer):
         )
         self.var_bounds_in["ub"] = self.var_bounds_out["ub"] = self.bound_equations["out"]["ub"].computeMaxBoundsValue(inputLayer)
         self.var_bounds_in["lb"] = self.var_bounds_out["lb"] = self.bound_equations["out"]["lb"].computeMinBoundsValue(inputLayer)
+
+class OutputLayer(LinearLayer):
+    def __init__(self, id: int, w:ndarray, b:ndarray, layer_type: str="output", size=0):
+        super(OutputLayer, self).__init__(id, w, b)
+        self.type = layer_type
+        self.size = size
