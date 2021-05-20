@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 from numpy import ndarray
 from typing import Union, List, Dict, Optional
@@ -19,7 +20,25 @@ class Layer:
             "ub": None,
             "lb": None
         }
+        self.var_bounds_in_cmp: Dict[str, Optional[ndarray]] = {
+            "ub": None,
+            "lb": None
+        }
+        self.var_bounds_out_cmp: Dict[str, Optional[List]] = {
+            "ub": None,
+            "lb": None
+        }
         self.bound_equations: Dict[str, Dict[str, Optional[LinearFunctions]]] = {
+            'in': {
+                'lb': None,
+                'ub': None
+            },
+            'out': {
+                'lb': None,
+                'ub': None
+            }
+        }
+        self.bound_equations_cmp: Dict[str, Dict[str, Optional[LinearFunctions]]] = {
             'in': {
                 'lb': None,
                 'ub': None
@@ -146,6 +165,7 @@ class Layer:
             "lb": LinearFunctions(newLowMatrix, newLowOffset)
         }
 
+
 class InputLayer(Layer):
     def __init__(self, id, layer_type="input", size=0):
         super(InputLayer, self).__init__(id, layer_type)
@@ -176,21 +196,26 @@ class ReluLayer(Layer):
             # 这个变量用于计算各种边界预处理方法（区间传播、符号传播、符号线性松弛等）所带来的边界束紧，对于每一层分别减少了多少binary变量
             ignoreBinaryVarNum = 0
             # 用这两个变量来测试并打印在区间传播的过程中，每一隐藏层Relu节点输入的上界的最大值和下界的最小值，从而判断自定义的M是否满足要求。
-            maxUpper = -999
-            minLower = 999
-            print("solve with Symbol Interval Algorithm")
+            maxUpper = -1 * sys.maxsize
+            minLower = +1 * sys.maxsize
+            sum_diff = 0
             for curNodeIdx, curNode in enumerate(self.var):
+                # 统计每层中出现的最大上界和最小下界
                 if self.var_bounds_in["ub"][curNodeIdx] > maxUpper:
                     maxUpper = self.var_bounds_in["ub"][curNodeIdx]
                 if self.var_bounds_in["lb"][curNodeIdx] < minLower:
                     minLower = self.var_bounds_in["lb"][curNodeIdx]
 
+                # 统计上下界的差值
+                sum_diff += self.var_bounds_in["ub"][curNodeIdx] - self.var_bounds_in["lb"][curNodeIdx]
 
                 if self.var_bounds_in["lb"][curNodeIdx] >= 0:
                     gmodel.addConstr(curNode == wx_add_b[curNodeIdx])
+                    #print('+{}'.format(curNodeIdx), end=' ')
                     ignoreBinaryVarNum += 1
                 elif self.var_bounds_in["ub"][curNodeIdx] <= 0:
                     gmodel.addConstr(curNode == 0)
+                    #print('-{}'.format(curNodeIdx), end=' ')
                     ignoreBinaryVarNum += 1
                 else:
                     upper_bounds = self.var_bounds_in["ub"][curNodeIdx]
@@ -206,9 +231,11 @@ class ReluLayer(Layer):
 
                     # 4
                     gmodel.addConstr(curNode <= upper_bounds * self.reluVar[curNodeIdx])
-            print(self.type, self.size, ignoreBinaryVarNum)
+            print()
+            print(self.id, self.type, self.size, ignoreBinaryVarNum)
             print('maxupper', maxUpper)
             print('minLower', minLower)
+            print('sum_diff', sum_diff)
         elif constrMethod == 1:
             '''
             0代表使用带激活变量的精确约束MILP
@@ -280,6 +307,77 @@ class ReluLayer(Layer):
         self.var_bounds_out['lb'] = np.maximum(self.var_bounds_out['lb'], 0)
         self.computeBoundsError()
 
+    # 该函数用于结合计算
+    def compute_Eq_and_bounds_sia_and_slr(self, preLayer: Layer, inputLayer: InputLayer):
+        # 主函数，用于计算符号传播
+        # part1：计算当前层输入的Eq
+        self.bound_equations["in"] = self._compute_in_bounds_sia_Eqs(
+            preLayer.bound_equations["out"]["ub"],
+            preLayer.bound_equations["out"]["lb"]
+        )
+
+        self.bound_equations_cmp["in"] = self._compute_in_bounds_sia_Eqs(
+            preLayer.bound_equations_cmp["out"]["ub"],
+            preLayer.bound_equations_cmp["out"]["lb"]
+        )
+        # part2：
+        # 计算当前层输入的真实边界的值，由Eq和input决定，不由上一层决定
+        # 注意这里是对上界EQ调用maxValue，对下界EQ调用minValue
+        self.var_bounds_in["ub"] = self.bound_equations["in"]["ub"].computeMaxBoundsValue(inputLayer)
+        self.var_bounds_in["lb"] = self.bound_equations["in"]["lb"].computeMinBoundsValue(inputLayer)
+
+        self.var_bounds_in_cmp = {
+            "ub": self.bound_equations_cmp["in"]["ub"].computeMaxBoundsValue(inputLayer),
+            "lb": self.bound_equations_cmp["in"]["lb"].computeMinBoundsValue(inputLayer)
+        }
+
+        # part3：计算输出的Eq，与part1对应
+        self.bound_equations["out"] = self._compute_out_bounds_0sia_or_1slr_Eqs(
+            self.bound_equations["in"],
+            inputLayer,
+            1
+        )
+
+        self.bound_equations_cmp["out"] = self._compute_out_bounds_0sia_or_1slr_Eqs(
+            self.bound_equations_cmp["in"],
+            inputLayer,
+            0
+        )
+
+        # part4：
+        # 计算当前层输出的真实边界的值，由Eq和input决定，不由上一层决定
+        # 注意这里是对上界EQ调用maxValue，对下界EQ调用minValue
+        self.var_bounds_out["ub"] = self.bound_equations["out"]["ub"].computeMaxBoundsValue(inputLayer)
+        self.var_bounds_out["lb"] = self.bound_equations["out"]["lb"].computeMinBoundsValue(inputLayer)
+
+        self.var_bounds_out_cmp = {
+            "ub": self.bound_equations_cmp["in"]["ub"].computeMaxBoundsValue(inputLayer),
+            "lb": self.bound_equations_cmp["in"]["lb"].computeMinBoundsValue(inputLayer)
+        }
+
+        self.var_bounds_out['ub'] = np.maximum(self.var_bounds_out['ub'], 0)
+        self.var_bounds_out['lb'] = np.maximum(self.var_bounds_out['lb'], 0)
+        self.var_bounds_out_cmp['ub'] = np.maximum(self.var_bounds_out_cmp['ub'] , 0)
+        self.var_bounds_out_cmp['lb'] = np.maximum(self.var_bounds_out_cmp['lb'] , 0)
+
+        '''
+        for i in range(self.size):
+            if self.var_bounds_in_cmp["ub"][i] < self.var_bounds_in["ub"][i]:
+                self.var_bounds_in["ub"][i] = self.var_bounds_in_cmp["ub"][i]
+                print('trigger')
+            if self.var_bounds_in_cmp["lb"][i] > self.var_bounds_in["lb"][i]:
+                self.var_bounds_in["lb"][i] = self.var_bounds_in_cmp["lb"][i]
+                print('trigger')
+
+            if self.var_bounds_out_cmp["ub"][i] < self.var_bounds_out["ub"][i]:
+                self.var_bounds_out["ub"][i] = self.var_bounds_out_cmp["ub"][i]
+            if self.var_bounds_out_cmp["lb"][i] > self.var_bounds_out["lb"][i]:
+                self.var_bounds_out["lb"][i] = self.var_bounds_out_cmp["lb"][i]
+        '''
+
+        self.computeBoundsError()
+
+
     # 计算在符号传播或符号线性松弛等预计算过程中是否出现下界大于上界的情况
     def computeBoundsError(self):
         num = 0
@@ -319,6 +417,15 @@ class LinearLayer(Layer):
         )
         self.var_bounds_in["ub"] = self.var_bounds_out["ub"] = self.bound_equations["out"]["ub"].computeMaxBoundsValue(inputLayer)
         self.var_bounds_in["lb"] = self.var_bounds_out["lb"] = self.bound_equations["out"]["lb"].computeMinBoundsValue(inputLayer)
+
+        if preLayer.bound_equations_cmp["in"]["ub"] is not None:
+            self.bound_equations_cmp["in"] = self.bound_equations_cmp["out"] = self._compute_in_bounds_sia_Eqs(
+                preLayer.bound_equations_cmp["out"]["ub"],
+                preLayer.bound_equations_cmp["out"]["lb"]
+            )
+            self.var_bounds_in_cmp["ub"] = self.var_bounds_out_cmp["ub"] = self.bound_equations_cmp["out"]["ub"].computeMaxBoundsValue(inputLayer)
+            self.var_bounds_in_cmp["lb"] = self.var_bounds_out_cmp["lb"] = self.bound_equations_cmp["out"]["lb"].computeMinBoundsValue(inputLayer)
+
 
 class OutputLayer(LinearLayer):
     def __init__(self, id: int, w:ndarray, b:ndarray, layer_type: str="output", size=0):

@@ -39,14 +39,14 @@ def mainForOuterScript():
     '''
     gurobi已经提供了关于容忍误差，所以此处不需要考虑舍入问题
     '''
-    solver.solve()
+    solver.solve(options.checkType)
     print(networkFilePath)
 
 def mainForRun(case, verifyType="acas"):
     if verifyType == "acas":
         networkFileName = "acas_1_{}.h5".format(case)
         networkFilePath = os.path.abspath(os.path.join("../resources/Acas", networkFileName))
-        network = Network(networkFilePath, fmtType="h5", propertyReadyToVerify=5, verifyType="acas")
+        network = Network(networkFilePath, fmtType="h5", propertyReadyToVerify=3, verifyType="acas")
         solver = Solver(network)
         solver.solve(verifyType)
         print(networkFileName)
@@ -82,7 +82,11 @@ def mainForRun(case, verifyType="acas"):
 
 if __name__ == "__main__":
     # 默认作为脚本使用，如为了方便测试可以使用mainForRun
-    # ["mnist", "acas"]
-    for i in range(1, 10):
+    '''
+    type = ["mnist", "acas"]
+    mnist 用于测试图片鲁棒性类的网络
+    acas  用于测试属性安全类的网络
+    '''
+    for i in range(1, 2):
         mainForRun(i, verifyType="acas")
     # mainForOuterScript()

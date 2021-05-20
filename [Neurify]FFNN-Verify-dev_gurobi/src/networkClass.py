@@ -13,6 +13,7 @@ class Network:
     def __init__(self, path="", fmtType="h5", propertyReadyToVerify=-1, imgPklFilePath="", verifyType="acas"):
         self.networkFilePath: str = path
         self.netFmtType: str = fmtType
+        self.verifyType = verifyType
         self.propertyIndexReadyToVerify: int = propertyReadyToVerify
         self.layerNum: int = 0
         self.eachLayerNums: List[int] = []
@@ -25,7 +26,7 @@ class Network:
         self.weights: List[ndarray] = []
         self.biases: List[ndarray] = []
 
-        if verifyType == "mnist":
+        if self.verifyType == "mnist":
             if imgPklFilePath == "":
                 raise Exception("未提供mnist类型验证所需图片文件路径")
             self.radius = 0.05
@@ -46,7 +47,7 @@ class Network:
         self.initBounds()
 
     def initBounds(self):
-        if self.propertyIndexReadyToVerify != -1:
+        if self.verifyType == 'acas':
             # 初始化acasxu类型输入层的边界
             res = getNormaliseInput(self.propertyIndexReadyToVerify)
             self.inputLmodel.setBounds(res[0], res[1])
@@ -56,22 +57,27 @@ class Network:
             input_upper_bounds = np.minimum(self.image + self.radius, 1)
             for i in range(len(input_upper_bounds)):
                 if input_upper_bounds[i] < input_lower_bounds[i]:
-                    print("Value Error in input bounds", i)
+                    raise Exception("Value Error in input bounds", i)
             self.inputLmodel.setBounds(input_lower_bounds, input_upper_bounds)
 
         # 初始化/预处理隐藏层及输出层的边界
         # 0 MILP with bigM
         # 1 MILP with ia  区间传播
         # 2 MILP with sia 符号区间传播
-        # 4 MILP with slr 符号线性松弛
+        # 3 MILP with slr 符号线性松弛
         if GlobalSetting.preSolveMethod == 0:
             pass
         elif GlobalSetting.preSolveMethod == 1:
             self.intervalPropation()
         elif GlobalSetting.preSolveMethod == 2:
             self.symbolIntervalPropation_0sia_or_1slr(0)
-        elif GlobalSetting.preSolveMethod == 4:
+        elif GlobalSetting.preSolveMethod == 3:
             self.symbolIntervalPropation_0sia_or_1slr(1)
+        elif GlobalSetting.preSolveMethod == 4:
+            res = getNormaliseInput(self.propertyIndexReadyToVerify)
+            self.inputLmodel.var_bounds_in_cmp["ub"] = self.inputLmodel.var_bounds_out_cmp["ub"] = res[0]
+            self.inputLmodel.var_bounds_in_cmp["lb"] = self.inputLmodel.var_bounds_out_cmp["lb"] = res[1]
+            self.symbolIntervalPropation_sia_and_slr()
 
     def intervalPropation(self):
         preLayer_u = self.inputLmodel.var_bounds_out["ub"]
@@ -116,6 +122,40 @@ class Network:
                 assert isinstance(layer, LinearLayer)
                 layer.compute_Eq_and_bounds(preLayer, self.inputLmodel)
             preLayer = layer
+
+    def symbolIntervalPropation_sia_and_slr(self):
+        inputLayerSize = self.inputLmodel.size
+        self.inputLmodel.bound_equations["out"]["lb"] = LinearFunctions(np.identity(inputLayerSize),
+                                                                        np.zeros(inputLayerSize))
+        self.inputLmodel.bound_equations["out"]["ub"] = LinearFunctions(np.identity(inputLayerSize),
+                                                                        np.zeros(inputLayerSize))
+
+        self.inputLmodel.bound_equations_cmp["out"]["lb"] = LinearFunctions(np.identity(inputLayerSize),
+                                                                        np.zeros(inputLayerSize))
+        self.inputLmodel.bound_equations_cmp["out"]["ub"] = LinearFunctions(np.identity(inputLayerSize),
+                                                                         np.zeros(inputLayerSize))
+        preLayer = self.inputLmodel
+        for layer in self.lmodel:
+            if layer.type == "relu":
+                assert isinstance(layer, ReluLayer)
+                layer.compute_Eq_and_bounds_sia_and_slr(preLayer, self.inputLmodel)
+            elif layer.type == "linear":
+                assert isinstance(layer, LinearLayer)
+                layer.compute_Eq_and_bounds(preLayer, self.inputLmodel)
+            preLayer = layer
+
+        for layer in self.lmodel:
+            slr_out_diff = 0
+            merge_out_diff = 0
+            for i in range(layer.size):
+                slr_out_diff += layer.var_bounds_out["ub"][i] - layer.var_bounds_out["lb"][i]
+            layer.var_bounds_in["ub"] = np.minimum(layer.var_bounds_in["ub"], layer.var_bounds_in_cmp["ub"])
+            layer.var_bounds_in["lb"] = np.maximum(layer.var_bounds_in["lb"], layer.var_bounds_in_cmp["lb"])
+            layer.var_bounds_out["ub"] = np.minimum(layer.var_bounds_out["ub"], layer.var_bounds_out_cmp["ub"])
+            layer.var_bounds_out["lb"] = np.maximum(layer.var_bounds_out["lb"], layer.var_bounds_out_cmp["lb"])
+            for i in range(layer.size):
+                merge_out_diff += layer.var_bounds_out["ub"][i] - layer.var_bounds_out["lb"][i]
+            print(slr_out_diff, merge_out_diff)
 
     def readFromNnet(self):
         if self.networkFilePath == "":
