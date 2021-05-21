@@ -48,6 +48,14 @@ def mainForRun(case, verifyType="acas"):
         networkFilePath = os.path.abspath(os.path.join("../resources/Acas", networkFileName))
         network = Network(networkFilePath, fmtType="h5", propertyReadyToVerify=3, verifyType="acas")
         solver = Solver(network)
+
+        for i in range(50):
+            print("%.5f"%network.lmodel[5].var_bounds_in["ub"][i])
+        print()
+        for i in range(50):
+            print("%.5f"%network.lmodel[5].var_bounds_in["lb"][i])
+        print()
+
         solver.solve(verifyType)
         print(networkFileName)
     elif verifyType == "mnist":
@@ -87,6 +95,6 @@ if __name__ == "__main__":
     mnist 用于测试图片鲁棒性类的网络
     acas  用于测试属性安全类的网络
     '''
-    for i in range(1, 2):
-        mainForRun(i, verifyType="acas")
+    for i in range(1, 20):
+        mainForRun(i, verifyType="mnist")
     # mainForOuterScript()
