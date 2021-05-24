@@ -4,7 +4,7 @@ from options import Options
 from solverClass import Solver
 from networkClass import Network
 from gurobipy import GRB, quicksum
-import pickle
+from options import GlobalSetting
 
 def getOptions():
     parse = argparse.ArgumentParser()
@@ -59,6 +59,8 @@ def mainForRun(case, verifyType="acas"):
         solver.solve(verifyType)
         print(networkFileName)
     elif verifyType == "mnist":
+        if GlobalSetting.preSolveMethod == 4:
+            GlobalSetting.preSolveMethod = 3
         imgPklFileName = "im{}.pkl".format(case)
         networkFileName = "mnist-net.h5"
         imgPklFilePath = os.path.abspath(os.path.join("../resources/Mnist/evaluation_images", imgPklFileName))

@@ -162,6 +162,7 @@ class Solver:
 
 
     def solve(self, verifyType):
+        self.m.Params.outputFlag = 0
         self.m.optimize()
         if self.m.status == GRB.OPTIMAL:
             print(">>>>>>>>>>unsat>>>>>>>>>>")
