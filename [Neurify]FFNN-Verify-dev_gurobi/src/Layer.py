@@ -52,10 +52,7 @@ class Layer:
         self.nodeList = []
 
     def setVar(self, varlist):
-        if self.var is None:
-            self.var = np.array(varlist)
-        else:
-            pass
+        self.var = np.array(varlist)
 
     def getVar(self):
         if self.var is not None:
@@ -211,13 +208,9 @@ class ReluLayer(Layer):
 
                 if self.var_bounds_in["lb"][curNodeIdx] >= 0:
                     gmodel.addConstr(curNode == wx_add_b[curNodeIdx])
-                    if self.id == 2:
-                       print('+{}'.format(curNodeIdx), end=' ')
                     ignoreBinaryVarNum += 1
                 elif self.var_bounds_in["ub"][curNodeIdx] <= 0:
                     gmodel.addConstr(curNode == 0)
-                    if self.id == 2:
-                        print('-{}'.format(curNodeIdx), self.var_bounds_in["ub"][curNodeIdx],end=' ')
                     ignoreBinaryVarNum += 1
                 else:
                     upper_bounds = self.var_bounds_in["ub"][curNodeIdx]

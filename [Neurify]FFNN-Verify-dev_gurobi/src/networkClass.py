@@ -166,8 +166,8 @@ class Network:
             if layer.id < self.layerNum - 1:
                 layer.var_bounds_in["ub"] = np.minimum(layer.var_bounds_in["ub"], layer.var_bounds_in_cmp["ub"])
                 layer.var_bounds_in["lb"] = np.maximum(layer.var_bounds_in["lb"], layer.var_bounds_in_cmp["lb"])
-                layer.var_bounds_out["ub"] = np.minimum(layer.var_bounds_out["ub"], layer.var_bounds_out_cmp["ub"])
-                layer.var_bounds_out["lb"] = np.maximum(layer.var_bounds_out["lb"], layer.var_bounds_out_cmp["lb"])
+                #layer.var_bounds_out["ub"] = np.minimum(layer.var_bounds_out["ub"], layer.var_bounds_out_cmp["ub"])
+                #layer.var_bounds_out["lb"] = np.maximum(layer.var_bounds_out["lb"], layer.var_bounds_out_cmp["lb"])
 
             for i in range(layer.size):
                 merge_out_diff += layer.var_bounds_out["ub"][i] - layer.var_bounds_out["lb"][i]
