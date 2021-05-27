@@ -6,7 +6,7 @@ from gurobipy import GRB, quicksum
 from networkClass import Network
 import property
 from ConstraintFormula import Disjunctive, Conjunctive
-
+from options import GlobalSetting
 
 class Solver:
     def __init__(self, network: Network):
@@ -15,7 +15,8 @@ class Solver:
         self.indexToVar: List[List] = []
         self.indexToReluvar: List[List] = []
 
-        while True:
+        while True and GlobalSetting.use_bounds_opt is True:
+            self.indexToVar = []
             opt_num = self.optimize_bounds()
             print("optmise bounds number: ", opt_num)
             if opt_num == 0:

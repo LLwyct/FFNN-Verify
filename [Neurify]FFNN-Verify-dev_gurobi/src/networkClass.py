@@ -169,9 +169,9 @@ class Network:
                 #layer.var_bounds_out["ub"] = np.minimum(layer.var_bounds_out["ub"], layer.var_bounds_out_cmp["ub"])
                 #layer.var_bounds_out["lb"] = np.maximum(layer.var_bounds_out["lb"], layer.var_bounds_out_cmp["lb"])
 
-            for i in range(layer.size):
+            '''for i in range(layer.size):
                 merge_out_diff += layer.var_bounds_out["ub"][i] - layer.var_bounds_out["lb"][i]
-            print(slr_out_diff, merge_out_diff)
+            print(slr_out_diff, merge_out_diff)'''
 
     def readFromNnet(self):
         if self.networkFilePath == "":

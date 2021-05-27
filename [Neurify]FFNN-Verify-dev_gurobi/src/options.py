@@ -17,5 +17,6 @@ class GlobalSetting:
     # 1 MILP with ia  区间传播
     # 2 MILP with sia 符号区间传播
     # 3 MILP with slr 符号线性松弛
-    # 4 guess
-    preSolveMethod = 4
+    # 4 sia and slr
+    preSolveMethod = 2
+    use_bounds_opt = True

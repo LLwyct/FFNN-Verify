@@ -83,10 +83,12 @@ class Layer:
         }
 
     def _compute_out_bounds_0sia_or_1slr_Eqs(self, Eqin, inputLayer, method):
-        '''return {
+        '''
+        return {
             "ub": Eqin["ub"].getUpperOutEqThroughRelu(inputLayer),
             "lb": Eqin["lb"].getLowerOutEqThroughRelu(inputLayer)
-        }'''
+        }
+        '''
         inUPEq: LinearFunctions = Eqin["ub"]
         inLOWEq: LinearFunctions = Eqin["lb"]
 
@@ -294,10 +296,6 @@ class ReluLayer(Layer):
         # 注意这里是对上界EQ调用maxValue，对下界EQ调用minValue
         self.var_bounds_out["ub"] = self.bound_equations["out"]["ub"].computeMaxBoundsValue(inputLayer)
         self.var_bounds_out["lb"] = self.bound_equations["out"]["lb"].computeMinBoundsValue(inputLayer)
-
-        #for i in range(self.size):
-        #    if self.var_bounds_out["ub"][i] == 0:
-        #        self.var_bounds_out["ub"][i] = self.var_bounds_in["ub"][i]
 
         self.var_bounds_out['ub'] = np.maximum(self.var_bounds_out['ub'], 0)
         self.var_bounds_out['lb'] = np.maximum(self.var_bounds_out['lb'], 0)
