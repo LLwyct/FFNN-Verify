@@ -136,5 +136,5 @@ class VerifyModel:
                 merge_out_diff += layer.var_bounds_out["ub"][i] - layer.var_bounds_out["lb"][i]
             print(slr_out_diff, merge_out_diff)'''
 
-    def getFixedNodeRatio(self):
+    def getFixedNodeRatio(self) -> float:
         return self.lmodel.getFixedNodeRatio()

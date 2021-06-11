@@ -1,3 +1,5 @@
+from numpy.core.fromnumeric import reshape
+from Split import Split
 from property import getNormaliseInput, acas_properties
 import copy
 
@@ -33,3 +35,8 @@ class Specification:
 
     def clone(self):
         return copy.deepcopy(self)
+
+    def resetFromSplit(self, split: Split):
+        newSpec = copy.deepcopy(self)
+        newSpec.setInputBounds(split.up, split.lo)
+        return newSpec

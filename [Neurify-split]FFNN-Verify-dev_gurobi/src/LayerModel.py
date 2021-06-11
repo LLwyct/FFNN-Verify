@@ -1,4 +1,4 @@
-from Layer import InputLayer
+from Layer import InputLayer, Layer
 from Layer import ReluLayer
 from Layer import LinearLayer
 import keras
@@ -12,7 +12,7 @@ class LayerModel:
         self.layerNum = -1
         self.inputLayer: Optional[InputLayer] = None
         self.eachLayerNums = []
-        self.lmodels = []
+        self.lmodels: Layer = []
 
     # 使用h5或nnet文件来初始化network的每一层weights和bias参数
     def initLayerModel(self, networkFilePath, netFmtType):

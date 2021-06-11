@@ -1,22 +1,27 @@
 from multiprocessing import Queue
+from typing import List, Tuple
+from LayerModel import LayerModel
+from Specification import Specification
+from Split import Split
 from SplittingProcess import SplittingProcess
 from LinearFunction import LinearFunction
 
 class MainVerify:
 
-    def __init__(self, network, spec):
+    def __init__(self, network, spec: Specification):
         self.globalQueue = Queue()
         initialSplittingProcess = SplittingProcess(0, network.lmodel, spec, self.globalQueue)
-        initialProblems = initialSplittingProcess.getInitialProblemSet(processNumber=4)
-        self.splittingProcessQueue = [
+        initialProblems: List[Split] = initialSplittingProcess.getInitialProblemSet(processNumber=4)
+        self.splittingProcessQueue: List[SplittingProcess] = [
             SplittingProcess(
                 i+1,
-                initialProblems[i][0],
-                initialProblems[i][1],
+                network.lmodel,
+                spec.resetFromSplit(initialProblems[i]),
                 self.globalQueue
             ) for i in range(len(initialProblems))
         ]
-
+        
 
     def verify(self):
-        pass
+        for process in self.splittingProcessQueue:
+            process.run()
