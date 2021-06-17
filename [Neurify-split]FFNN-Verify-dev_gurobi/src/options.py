@@ -1,3 +1,6 @@
+from numpy.lib.shape_base import split
+
+
 class Options:
     def __init__(
             self,
@@ -20,3 +23,4 @@ class GlobalSetting:
     # 4 sia and slr
     preSolveMethod = 3
     use_bounds_opt = True
+    SPLIT_THRESHOLD = 0.8

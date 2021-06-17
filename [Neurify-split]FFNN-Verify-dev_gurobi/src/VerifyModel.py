@@ -1,18 +1,44 @@
 import copy
+from typing import List
 import numpy as np
 import sys
+from ConstraintFormula import Conjunctive, Disjunctive
+from Specification import Specification
 from options import GlobalSetting
 from Layer import ReluLayer, LinearLayer
 from LinearFunction import LinearFunction
 from LayerModel import LayerModel
+import gurobipy as gp
+from gurobipy import GRB, quicksum
 
 class VerifyModel:
-    def __init__(self, lmodel, spec):
-        self.lmodel: LayerModel = copy.deepcopy(lmodel)
-        self.spec = copy.deepcopy(spec)
+    def __init__(self, id: str, lmodel: 'LayerModel', spec: 'Specification'):
+        self.id: str = id
+        self.lmodel: 'LayerModel' = copy.deepcopy(lmodel)
+        self.spec: 'Specification' = copy.deepcopy(spec)
         self.verifyType = "acas"
         self.lmodel.loadSpec(self.spec)
-    
+        self.gmodel = None
+        self.indexToVar: List[List] = []
+        self.indexToReluvar: List[List] = []
+
+    def verify(self) -> bool:
+        '''
+        当sat满足约束的取反时返回False
+        当unsat不满足约束的取反时返回True
+        '''
+        self.gmodel = gp.Model()
+        self.gmodel.Params.OutputFlag = 1
+        self.indexToVar = []
+        self.indexToReluvar: List[List] = []
+        self.addNetworkConstraints(self.gmodel)
+        self.addManualConstraints(self.gmodel)
+        self.gmodel.optimize()
+        if self.gmodel.status == GRB.OPTIMAL:
+            return False
+        else:
+            return True
+
     def initAllBounds(self):
         # 初始化/预处理隐藏层及输出层的边界
         # 0 MILP with bigM
@@ -35,8 +61,8 @@ class VerifyModel:
             # self.symbolIntervalPropation_sia_and_slr()
 
     def intervalPropation(self):
-        preLayer_u = self.lmodel.lmodels.inputLayer.var_bounds_out["ub"]
-        preLayer_l = self.lmodel.lmodels.inputLayer.var_bounds_out["lb"]
+        preLayer_u = self.lmodel.inputLayer.var_bounds_out["ub"]
+        preLayer_l = self.lmodel.inputLayer.var_bounds_out["lb"]
         for layer in self.lmodel.lmodels:
             w_active = np.maximum(layer.weight, np.zeros(layer.weight.shape))
             w_inactive = np.minimum(layer.weight, np.zeros(layer.weight.shape))
@@ -94,7 +120,7 @@ class VerifyModel:
         self.lmodel.inputLayer.bound_equations_cmp["out"]["ub"] = LinearFunction(np.identity(inputLayerSize),
                                                                             np.zeros(inputLayerSize))
         preLayer = self.lmodel.inputLayer
-        for layer in self.lmodel:
+        for layer in self.lmodel.lmodels:
             if layer.type == "relu":
                 assert isinstance(layer, ReluLayer)
                 layer.compute_Eq_and_bounds_sia_and_slr(
@@ -104,7 +130,7 @@ class VerifyModel:
                 layer.compute_Eq_and_bounds(preLayer, self.lmodel.inputLayer)
             preLayer = layer
 
-        for layer in self.lmodel:
+        for layer in self.lmodel.lmodels:
             slr_out_diff = 0
             # merge_out_diff = 0
             maxUpper_out_sia = -1 * sys.maxsize
@@ -138,3 +164,151 @@ class VerifyModel:
 
     def getFixedNodeRatio(self) -> float:
         return self.lmodel.getFixedNodeRatio()
+
+    def addNetworkConstraints(self, m: 'gp.Model', optimize_bounds=False):
+        # 添加输入层的COUTINUE变量，并添加输入层约束
+        self.indexToVar.append(
+            [
+                m.addVar(
+                    ub=self.lmodel.inputLayer.var_bounds_out["ub"][i],
+                    lb=self.lmodel.inputLayer.var_bounds_out["lb"][i],
+                    vtype=GRB.CONTINUOUS,
+                    name='X{}'.format(str(i))
+                ) for i in range(self.lmodel.inputLayer.size)
+            ]
+        )
+        self.lmodel.inputLayer.setVar(self.indexToVar[-1])
+        m.update()
+
+        # 添加隐藏层、输出层的CONTINUE变量,不包括input层
+        for layer in self.lmodel.lmodels:
+            # 添加实数变量
+            layer_var_bounds = layer.var_bounds_out
+            if layer.type == "relu" or layer.type == "linear":
+                ub, lb = None, None
+                if layer_var_bounds["ub"] is None:
+                    ub = [GRB.INFINITY for i in range(layer.size)]
+                else:
+                    ub = layer_var_bounds["ub"]
+                if layer_var_bounds["lb"] is None:
+                    lb = [-GRB.INFINITY for i in range(layer.size)]
+                else:
+                    lb = layer_var_bounds["lb"]
+
+                if layer.type == "relu":
+                    self.indexToVar.append(
+                        [
+                            m.addVar(
+                                ub=ub[i],
+                                lb=lb[i]
+                            ) for i in range(layer.size)
+                        ]
+                    )
+                '''
+                当前默认的网络模式是input + n*relu + output
+                因此当lmodel中出现linear层时，默认为输出层，因为lmodel不包括输入层，只能是输出层
+                '''
+                if layer.type == "linear":
+                    self.indexToVar.append(
+                        [
+                            m.addVar(
+                                ub=ub[i],
+                                lb=lb[i],
+                                name="Y{}".format(str(i))
+                            ) for i in range(layer.size)
+                        ]
+                    )
+            # 保存一份副本到lmodel的layer中
+            layer.setVar(self.indexToVar[-1])
+        m.update()
+
+        if optimize_bounds == False:
+            # 添加relu节点变量，是二进制变量，0代表非激活y=0，1代表激活y=x
+            for layer in self.lmodel.lmodels:
+                if layer.type == "relu":
+                    self.indexToReluvar.append([m.addVar(vtype=GRB.BINARY, name='reluVar') for _ in range(layer.size)])
+                    layer.setReluVar(self.indexToReluvar[-1])
+                else:
+                    continue
+            m.update()
+
+
+        # 处理输入层到输出层的约束
+        preLayer = self.lmodel.inputLayer
+        for lidx, layer in enumerate(self.lmodel.lmodels):
+            # constrMethod=-1 表示使用全局的约束方法，为以后的优化做准备
+            # constrMethod= 0 表示使用精确地混合整型编码方式进行约束
+            # constrMethod= 1 表示使用三角松弛进行约束
+            constrMethod = -1
+            if optimize_bounds == True:
+                constrMethod = 1
+            layer.addConstr(preLayer, m, constrMethod=constrMethod)
+            preLayer = layer
+
+    def addManualConstraints(self, m: gp.Model):
+        m.update()
+        # 理论上在这里添加输出层上的约束
+        constraints = self.spec.outputConstr
+        if isinstance(constraints, Disjunctive):
+            for constr in constraints.constraints:
+                if constr[0] == "VarVar":
+                    var1 = m.getVarByName("Y{}".format(constr[1]))
+                    relation = constr[2]
+                    var2 = m.getVarByName("Y{}".format(constr[3]))
+                    if relation == "GT":
+                        m.addConstr(var1 <= var2)
+                    elif relation == "LT":
+                        m.addConstr(var1 >= var2)
+                    elif relation == "EQ":
+                        pass
+                    else:
+                        raise Exception("输出约束关系异常")
+                elif constr[0] == "VarValue":
+                    var = m.getVarByName("Y{}".format(constr[1]))
+                    relation = constr[2]
+                    value = m.getVarByName("Y{}".format(constr[3]))
+                    if relation == "GT":
+                        m.addConstr(var <= value)
+                    elif relation == "LT":
+                        m.addConstr(var >= value)
+                    elif relation == "EQ":
+                        pass
+                    else:
+                        raise Exception("输出约束关系异常")
+        elif isinstance(constraints, Conjunctive):
+            constrlength = len(constraints.constraints)
+            additionalConstrBinVar = [
+                m.addVar(vtype=GRB.BINARY) for _ in range(constrlength)]
+            for (i, constr) in enumerate(constraints.constraints):
+                if constr[0] == "VarVar":
+                    var1 = m.getVarByName(constr[1])
+                    relation = constr[2]
+                    var2 = m.getVarByName(constr[3])
+                    if relation == "GT":
+                        m.addConstr(
+                            (additionalConstrBinVar[i] == 1) >> (var1 <= var2))
+                    elif relation == "LT":
+                        m.addConstr(
+                            (additionalConstrBinVar[i] == 1) >> (var1 >= var2))
+                    elif relation == "EQ":
+                        pass
+                    else:
+                        raise Exception("输出约束关系异常")
+                elif constr[0] == "VarValue":
+                    var = m.getVarByName(constr[1])
+                    relation = constr[2]
+                    value = int(constr[3])
+                    if relation == "GT":
+                        m.addConstr(
+                            (additionalConstrBinVar[i] == 1) >> (var <= value))
+                    elif relation == "LT":
+                        m.addConstr(
+                            (additionalConstrBinVar[i] == 1) >> (var >= value))
+                    elif relation == "EQ":
+                        m.addConstr(var >= value)
+                    else:
+                        raise Exception("输出约束关系异常")
+                m.update()
+            m.addConstr(quicksum(additionalConstrBinVar) >= 1)
+            m.addConstr(quicksum(additionalConstrBinVar) <= constrlength)
+            m.update()

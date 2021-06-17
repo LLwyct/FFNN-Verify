@@ -1,18 +1,16 @@
-from Layer import InputLayer, Layer
-from Layer import ReluLayer
-from Layer import LinearLayer
+from Layer import InputLayer, ReluLayer, LinearLayer
 import keras
 from keras.models import load_model
-from typing import Optional
+from typing import List, Optional, Union
 from Specification import Specification
 
 class LayerModel:
 
     def __init__(self):
         self.layerNum = -1
-        self.inputLayer: Optional[InputLayer] = None
+        self.inputLayer: Optional['InputLayer'] = None
         self.eachLayerNums = []
-        self.lmodels: Layer = []
+        self.lmodels: List[Union['ReluLayer', 'LinearLayer']] = []
 
     # 使用h5或nnet文件来初始化network的每一层weights和bias参数
     def initLayerModel(self, networkFilePath, netFmtType):
@@ -22,7 +20,7 @@ class LayerModel:
             self.loadFromNnet(networkFilePath)
 
     # 使用spec初始化输入层的上下界
-    def loadSpec(self, spec:Specification):
+    def loadSpec(self, spec:'Specification'):
         self.inputLayer.setBounds(spec.inputBounds["ub"], spec.inputBounds["lb"])
 
     def getFixedNodeRatio(self):

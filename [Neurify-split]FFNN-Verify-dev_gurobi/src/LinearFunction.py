@@ -11,10 +11,10 @@ def compute_upper(weights_plus, weights_neg, input_lb, input_ub):
     return weights_plus.dot(input_ub) + weights_neg.dot(input_lb)
 
 class LinearFunction:
-    def __init__(self, matrix: ndarray, offset: ndarray):
+    def __init__(self, matrix: 'ndarray', offset: 'ndarray'):
         self.size: int = matrix[0].size
-        self.matrix: ndarray = matrix
-        self.offset: ndarray = offset
+        self.matrix: 'ndarray' = matrix
+        self.offset: 'ndarray' = offset
 
     def computeMaxBoundsValue(self, inputLayer):
         input_ub = inputLayer.var_bounds_out["ub"]

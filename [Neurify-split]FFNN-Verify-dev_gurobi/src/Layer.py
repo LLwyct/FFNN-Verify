@@ -12,7 +12,7 @@ class Layer:
         self.type: str = layer_type
         self.size: Optional[int] = None
         self.id = id
-        self.var_bounds_in: Dict[str, Optional[ndarray]] = {
+        self.var_bounds_in: Dict[str, Optional['ndarray']] = {
             "ub": None,
             "lb": None
         }
@@ -20,7 +20,7 @@ class Layer:
             "ub": None,
             "lb": None
         }
-        self.var_bounds_in_cmp: Dict[str, Optional[ndarray]] = {
+        self.var_bounds_in_cmp: Dict[str, Optional['ndarray']] = {
             "ub": None,
             "lb": None
         }
@@ -28,7 +28,7 @@ class Layer:
             "ub": None,
             "lb": None
         }
-        self.bound_equations: Dict[str, Dict[str, Optional[LinearFunction]]] = {
+        self.bound_equations: Dict[str, Dict[str, Optional['LinearFunction']]] = {
             'in': {
                 'lb': None,
                 'ub': None
@@ -38,7 +38,7 @@ class Layer:
                 'ub': None
             }
         }
-        self.bound_equations_cmp: Dict[str, Dict[str, Optional[LinearFunction]]] = {
+        self.bound_equations_cmp: Dict[str, Dict[str, Optional['LinearFunction']]] = {
             'in': {
                 'lb': None,
                 'ub': None
@@ -63,7 +63,7 @@ class Layer:
     def setSize(self, size):
         self.size = size
 
-    def _compute_in_bounds_sia_Eqs(self, pLayerUpperEq: Optional[LinearFunction], pLayerLowerEq: Optional[LinearFunction]) -> Dict[str, LinearFunction]:
+    def _compute_in_bounds_sia_Eqs(self, pLayerUpperEq: Optional['LinearFunction'], pLayerLowerEq: Optional['LinearFunction']) -> Dict[str, 'LinearFunction']:
         weight_plus = np.maximum(self.weight, np.zeros(self.weight.shape))
         weight_neg = np.minimum(self.weight, np.zeros(self.weight.shape))
 
@@ -89,8 +89,8 @@ class Layer:
             "lb": Eqin["lb"].getLowerOutEqThroughRelu(inputLayer)
         }
         '''
-        inUPEq: LinearFunction = Eqin["ub"]
-        inLOWEq: LinearFunction = Eqin["lb"]
+        inUPEq: 'LinearFunction' = Eqin["ub"]
+        inLOWEq: 'LinearFunction' = Eqin["lb"]
 
         # 先获得一份未来用于构造函数参数的拷贝
         newUpMatrix = inUPEq.matrix.copy()
@@ -171,20 +171,20 @@ class InputLayer(Layer):
         self.type = layer_type
         self.size = size
 
-    def setBounds(self, ub: ndarray, lb: ndarray):
+    def setBounds(self, ub: 'ndarray', lb: 'ndarray'):
         self.var_bounds_in["ub"] = self.var_bounds_out["ub"] = ub
         self.var_bounds_in["lb"] = self.var_bounds_out["lb"] = lb
 
 class ReluLayer(Layer):
-    def __init__(self, id, w: ndarray, b: ndarray, layer_type: str = "relu"):
+    def __init__(self, id, w: 'ndarray', b: 'ndarray', layer_type: str = "relu"):
         super(ReluLayer, self).__init__(id, layer_type)
         self.type:      str     = layer_type
         self.size:      int     = b.size
-        self.weight:    ndarray = w
-        self.bias:      ndarray = b
-        self.reluVar:   ndarray = np.empty(self.size)
+        self.weight:    'ndarray' = w
+        self.bias:      'ndarray' = b
+        self.reluVar:   'ndarray' = np.empty(self.size)
 
-    def addConstr(self, preLayer: Layer, gmodel: Model, constrMethod: int):
+    def addConstr(self, preLayer: 'Layer', gmodel: 'Model', constrMethod: int):
         wx_add_b = np.dot(self.weight, preLayer.var) + self.bias
         constrMethod = GlobalSetting.constrMethod if constrMethod == -1 else constrMethod
         if constrMethod == 0:
@@ -269,7 +269,7 @@ class ReluLayer(Layer):
             pass
 
     # 该函数用于计算在符号传播或符号线性松弛等预计算过程中每一层的Eqution以及具体边界的传播情况
-    def compute_Eq_and_bounds_0sia_or_1slr(self, preLayer: Layer, inputLayer: InputLayer, method: int):
+    def compute_Eq_and_bounds_0sia_or_1slr(self, preLayer: 'Layer', inputLayer: 'InputLayer', method: int):
         # 主函数，用于计算符号传播
         # part1：计算当前层输入的Eq
         self.bound_equations["in"] = self._compute_in_bounds_sia_Eqs(
@@ -302,7 +302,7 @@ class ReluLayer(Layer):
         self.computeBoundsError()
 
     # 该函数用于结合计算
-    def compute_Eq_and_bounds_sia_and_slr(self, preLayer: Layer, inputLayer: InputLayer):
+    def compute_Eq_and_bounds_sia_and_slr(self, preLayer: 'Layer', inputLayer: 'InputLayer'):
         # 主函数，用于计算符号传播
         # part1：计算当前层输入的Eq
         self.bound_equations["in"] = self._compute_in_bounds_sia_Eqs(
@@ -450,7 +450,7 @@ class LinearLayer(Layer):
 
 
 class OutputLayer(LinearLayer):
-    def __init__(self, id: int, w:ndarray, b:ndarray, layer_type: str="output", size=0):
+    def __init__(self, id: int, w:'ndarray', b:'ndarray', layer_type: str="output", size=0):
         super(OutputLayer, self).__init__(id, w, b)
         self.type = layer_type
         self.size = size

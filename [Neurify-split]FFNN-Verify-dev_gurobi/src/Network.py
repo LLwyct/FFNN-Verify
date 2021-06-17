@@ -17,7 +17,7 @@ class Network:
         self.netFmtType: str = fmtType
         self.verifyType = verifyType
         self.propertyIndexReadyToVerify: int = propertyReadyToVerify
-        self.inputLmodel: Optional[InputLayer] = None
+        self.inputLmodel: Optional['InputLayer'] = None
         self.lmodel = LayerModel()
         self.spec = Specification()
         self.image = None
@@ -26,8 +26,8 @@ class Network:
         weight矩阵，长度为layerNum - 1
         当计算第i层第j个节点的值时，使用向量weight[i] * x_{i-1}
         '''
-        self.weights: List[ndarray] = []
-        self.biases: List[ndarray] = []
+        self.weights: List['ndarray'] = []
+        self.biases: List['ndarray'] = []
 
         if self.verifyType == "mnist":
             if imgPklFilePath == "":
