@@ -14,7 +14,7 @@ class MainVerify:
         self.jobQueue: 'Queue' = Queue()
         self.messageQueue: 'Queue' = Queue()
         initialSplittingProcess = SplittingProcess("0_0", network.lmodel, spec, self.jobQueue, self.messageQueue)
-        initialProblems: List['Split'] = initialSplittingProcess.getInitialProblemSet(processNumber=1)
+        initialProblems: List['Split'] = initialSplittingProcess.getInitialProblemSet(processNumber=2)
         self.splittingProcessQueue: List['SplittingProcess'] = [
             SplittingProcess(
                 "{}_1".format(i+1),
@@ -30,49 +30,54 @@ class MainVerify:
                 i+1,
                 self.jobQueue,
                 self.messageQueue,
-            ) for i in range(1)
+            ) for i in range(2)
         ]
 
     def verify(self):
-        finalSatResult = None
+        finalSatResult = True
         finalSolverRuntime = 0
         finishedProcessNum = 0
         jobs_num = 0
         solverModelSolvedProblemNums = 0
         start = timer()
         for process in self.splittingProcessQueue:
-            process.run()
+            process.start()
         for process in self.modelVerificationProcessQueue:
-            process.run()
-        while True:
-            res = self.messageQueue.get(timeout=3600)
-            if res[0] == EnumMessageType.PROCESS_SENT_JOBS_NUM:
-                jobs_num += 1
-            elif res[0] == EnumMessageType.SPLITTING_PROCESS_FINISHED:
-                finishedProcessNum += 1
-            elif res[0] == EnumMessageType.VERIFY_RESULT:
-                jobs_num -= 1
-                solverResult: bool = res[1]
-                solverRuntime: float = res[2]
-                solverModelSolvedProblemNums += 1
-                finalSolverRuntime += solverRuntime
-                finalSatResult = solverResult
-                if solverResult == False:
-                    finalSatResult = False
-                    break
+            process.start()
 
-            if finishedProcessNum == len(self.splittingProcessQueue) and jobs_num == 0:
-                print("all end")
-                break
+        while True:
+            try:
+                res = self.messageQueue.get(timeout=3600)
+                if res[0] == EnumMessageType.PROCESS_SENT_JOBS_NUM:
+                    jobs_num += res[1]
+                elif res[0] == EnumMessageType.SPLITTING_PROCESS_FINISHED:
+                    finishedProcessNum += 1
+                elif res[0] == EnumMessageType.VERIFY_RESULT:
+                    jobs_num -= 1
+                    solverResult: bool = res[1]
+                    solverRuntime: float = res[2]
+                    solverModelSolvedProblemNums += 1
+                    finalSolverRuntime += solverRuntime
+                    finalSatResult = solverResult
+                    if solverResult == False:
+                        finalSatResult = False
+                        break
+
+                if finishedProcessNum == len(self.splittingProcessQueue) and jobs_num == 0:
+                    print("all end")
+                    break
+                print(finishedProcessNum, jobs_num)
+            except Exception:
+                raise Exception
         end = timer()
-        
-        '''try:
+
+        try:
             for process in self.splittingProcessQueue:
                 process.terminate()
             for process in self.modelVerificationProcessQueue:
                 process.terminate()
         except Exception:
             print("something error while attempting to terminate processes")
-            raise Exception'''
+            raise Exception
 
         return (finalSatResult, (end - start), finalSolverRuntime)

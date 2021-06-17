@@ -17,7 +17,8 @@ def main_for_run(verify_type, case):
         spec = network.getInitialSpec()
         mainVerifier = MainVerify(network, spec)
         isSat, time, solverTime =  mainVerifier.verify()
-        print(isSat, time, solverTime)
+        print("SAT" if isSat else "UNSAT", time, solverTime)
+
 
 if __name__ == '__main__':
-    main_for_run("acas", 6)
+    main_for_run("acas", 9)

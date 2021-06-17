@@ -79,8 +79,8 @@ class SplittingProcess(Process):
                     bestIndex = i
                     [group, seq] = split.id.split('_')
                     bestSplit = [
-                        Split("{}_{}".format(str(int(group)), str(int(seq*2))), new_1_upper, new_1_lower),
-                        Split("{}_{}".format(str(int(group)), str(int(seq*2)+1)), new_2_upper, new_2_lower)
+                        Split("{}_{}".format(str(int(group)), str(int(seq)*2)), new_1_upper, new_1_lower),
+                        Split("{}_{}".format(str(int(group)), str(int(seq)*2+1)), new_2_upper, new_2_lower)
                     ]
 
             return bestSplit, bestIndex
@@ -97,20 +97,23 @@ class SplittingProcess(Process):
             nowSplit: 'Split' = queue.pop()
             worth, subSplit = self.isSplitWorth(nowSplit)
             if worth:
+                print("push", subSplit[0].id, subSplit[1].id)
                 queue.extend(subSplit)
-            elif isinstance(subSplit, List):
+            elif isinstance(subSplit, str):
+                print("safe", subSplit)
                 continue
             elif isinstance(subSplit, VerifyModel):
+                print("slover", subSplit.id)
                 self.globalJobQueue.put(subSplit)
                 processSentJobsNum += 1
         self.globalMsgQueue.put((EnumMessageType.PROCESS_SENT_JOBS_NUM, processSentJobsNum))
-        self.globalMsgQueue.put((EnumMessageType.SPLITTING_PROCESS_FINISHED, -1))
+        self.globalMsgQueue.put(tuple([EnumMessageType.SPLITTING_PROCESS_FINISHED]))
 
     def isSplitWorth(self, nowSplit: 'Split') -> Tuple:
         nowVerifyModel, nowFixedRatio = self.getFixedNodeInfo(self.lmodel, nowSplit)
         # 如果该split是安全的，则该split及其子节点都是安全的
         if self.isSatisfySpec(nowVerifyModel):
-            return False, []
+            return False, nowSplit.id
         # 如果该split导致其gurobi的节点固定率很高，则没必要继续分割
         if nowFixedRatio > GlobalSetting.SPLIT_THRESHOLD:
             return False, nowVerifyModel
@@ -119,7 +122,7 @@ class SplittingProcess(Process):
         subsplit, bestSplitIndex = self.getBestSplit(nowSplit, self.lmodel, self.spec.resetFromSplit(nowSplit))
         vmodel0, ratio0 = self.getFixedNodeInfo(self.lmodel, subsplit[0])
         vmodel1, ratio1 = self.getFixedNodeInfo(self.lmodel, subsplit[1])
-        if nowFixedRatio < max(ratio0, ratio1):
+        if nowFixedRatio > max(ratio0, ratio1):
             return False, nowVerifyModel
         
         return True, subsplit

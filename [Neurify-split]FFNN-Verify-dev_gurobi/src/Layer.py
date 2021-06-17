@@ -228,11 +228,11 @@ class ReluLayer(Layer):
 
                     # 4
                     gmodel.addConstr(curNode <= upper_bounds * self.reluVar[curNodeIdx])
-            print()
+            '''print()
             print(self.id, self.type, self.size, ignoreBinaryVarNum)
             print('maxupper', maxUpper)
             print('minLower', minLower)
-            print('sum_diff', sum_diff)
+            print('sum_diff', sum_diff)'''
 
         elif constrMethod == 1:
             '''
@@ -377,23 +377,25 @@ class ReluLayer(Layer):
         for i in range(self.size):
             if self.var_bounds_in["lb"][i] > self.var_bounds_in["ub"][i]:
                 num += 1
-                print("Out of in bounds ", i)
+                #print("Out of in bounds ", i)
             if self.var_bounds_in_cmp["lb"] is not None and self.var_bounds_in_cmp["lb"][i] > self.var_bounds_in_cmp["ub"][i]:
                 num += 1
-                print("optimize lead Out of inner bounds ", i)
+                #print("optimize lead Out of inner bounds ", i)
         if num != 0:
-            print("value Error , inbounds, ", self.id, num)
+            pass
+            #print("value Error , inbounds, ", self.id, num)
 
         num = 0
         for i in range(self.size):
             if self.var_bounds_out["lb"][i] > self.var_bounds_out["ub"][i]:
                 num += 1
-                print("Out of out bounds ", i)
+                #print("Out of out bounds ", i)
             if self.var_bounds_out_cmp["lb"] is not None and self.var_bounds_out_cmp["lb"][i] > self.var_bounds_out_cmp["ub"][i]:
                 num += 1
-                print("optimize lead out of outter bounds ", i)
+                #print("optimize lead out of outter bounds ", i)
         if num != 0:
-            print("value Error , outbounds, ", self.id, num)
+            pass
+            #print("value Error , outbounds, ", self.id, num)
 
     def getFixedNodeNum(self):
         fixedNodeNum = self.size
@@ -426,10 +428,10 @@ class LinearLayer(Layer):
             if self.var_bounds_in["lb"][i] < minLower:
                 minLower = self.var_bounds_in["lb"][i]
             sum_diff += self.var_bounds_in["ub"][i] - self.var_bounds_in["lb"][i]
-        print(self.id, self.type)
-        print('maxupper', maxUpper)
-        print('minLower', minLower)
-        print('sum_diff', sum_diff)
+        #print(self.id, self.type)
+        #print('maxupper', maxUpper)
+        #print('minLower', minLower)
+        #print('sum_diff', sum_diff)
 
     def compute_Eq_and_bounds(self, preLayer, inputLayer):
         # 这里因为对于Linear层，in和out是一样的，所以我们直接使用in的函数结果返回给out，因为在利用区间的值赋值给M的时候，只需要out不需要in

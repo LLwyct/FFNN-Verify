@@ -20,7 +20,9 @@ class ModelVerificationProcess(Process):
                 endTime = timer()
                 runtime = endTime - startTime
                 self.globalMsgQueue.put((EnumMessageType.VERIFY_RESULT, res, runtime))
-                print("eeeeeennnndddddd")
-                break
+                #self.globalMsgQueue.put((EnumMessageType.VERIFY_RESULT, False, 1))
+                #res = True
+                if res == False:
+                    break
             except Exception:
                 raise Exception

@@ -28,15 +28,17 @@ class VerifyModel:
         当unsat不满足约束的取反时返回True
         '''
         self.gmodel = gp.Model()
-        self.gmodel.Params.OutputFlag = 1
+        self.gmodel.Params.OutputFlag = 0
         self.indexToVar = []
         self.indexToReluvar: List[List] = []
         self.addNetworkConstraints(self.gmodel)
         self.addManualConstraints(self.gmodel)
         self.gmodel.optimize()
         if self.gmodel.status == GRB.OPTIMAL:
+            print("launch slover", self.id, False)
             return False
         else:
+            print("launch slover", self.id, True)
             return True
 
     def initAllBounds(self):
