@@ -23,4 +23,7 @@ class GlobalSetting:
     # 4 sia and slr
     preSolveMethod = 3
     use_bounds_opt = True
-    SPLIT_THRESHOLD = 0.8
+    SPLIT_THRESHOLD = 0.7
+
+    splitting_processes_num = 1
+    vmodel_verify_processes_num = 4

@@ -9,13 +9,14 @@ from multiprocessing import Process, Queue
 from ConstraintFormula import Disjunctive
 from typing import NoReturn, Tuple, List
 from EnumMessageType import EnumMessageType
+from timeit import default_timer as timer
 
 class SplittingProcess(Process):
     def __init__(self, id: str, lmodel: 'LayerModel', spec: 'Specification', globalJobQueue, globalMsgQueue):
         super(SplittingProcess, self).__init__()
-        self.id: str = id
-        self.lmodel: 'LayerModel' = lmodel
-        self.spec: 'Specification' = spec
+        self.id: str                 = id
+        self.lmodel: 'LayerModel'    = lmodel
+        self.spec: 'Specification'   = spec
         self.globalJobQueue: 'Queue' = globalJobQueue
         self.globalMsgQueue: 'Queue' = globalMsgQueue
 
@@ -24,6 +25,29 @@ class SplittingProcess(Process):
             self.findSubProblemsAndPushToGlobalQueue()
         except Exception:
             raise Exception
+
+    def findSubProblemsAndPushToGlobalQueue(self) -> NoReturn:
+        start = timer()
+        topSplit: 'Split' = Split.createByInterval(self.id, self.spec)
+        # topVerifyModel, topFixedRatio = self.getFixedNodeInfo(self.lmodel, topSplit)
+        queue = deque()
+        queue.append(topSplit)
+        processSentJobsNum: int = 0
+        while(len(queue) != 0):
+            nowSplit: 'Split' = queue.pop()
+            worth, subSplit = self.isSplitWorth(nowSplit)
+            if worth:
+                #print("push", subSplit[0].id, subSplit[1].id)
+                queue.extend(subSplit)
+            elif isinstance(subSplit, str):
+                #print("safe", subSplit)
+                continue
+            elif isinstance(subSplit, VerifyModel):
+                #print("slover", subSplit.id)
+                self.globalJobQueue.put(subSplit)
+                processSentJobsNum += 1
+        end = timer()
+        self.globalMsgQueue.put((EnumMessageType.SPLITTING_PROCESS_FINISHED, processSentJobsNum, end - start))
 
     def getInitialProblemSet(self, processNumber=1) -> List['Split']:
         split = Split.createByInterval("0_0", self.spec)
@@ -86,28 +110,6 @@ class SplittingProcess(Process):
             return bestSplit, bestIndex
         else:
             pass
-
-    def findSubProblemsAndPushToGlobalQueue(self) -> NoReturn:
-        topSplit: 'Split' = Split.createByInterval(self.id, self.spec)
-        # topVerifyModel, topFixedRatio = self.getFixedNodeInfo(self.lmodel, topSplit)
-        queue = deque()
-        queue.append(topSplit)
-        processSentJobsNum: int = 0
-        while(len(queue) != 0):
-            nowSplit: 'Split' = queue.pop()
-            worth, subSplit = self.isSplitWorth(nowSplit)
-            if worth:
-                print("push", subSplit[0].id, subSplit[1].id)
-                queue.extend(subSplit)
-            elif isinstance(subSplit, str):
-                print("safe", subSplit)
-                continue
-            elif isinstance(subSplit, VerifyModel):
-                print("slover", subSplit.id)
-                self.globalJobQueue.put(subSplit)
-                processSentJobsNum += 1
-        self.globalMsgQueue.put((EnumMessageType.PROCESS_SENT_JOBS_NUM, processSentJobsNum))
-        self.globalMsgQueue.put(tuple([EnumMessageType.SPLITTING_PROCESS_FINISHED]))
 
     def isSplitWorth(self, nowSplit: 'Split') -> Tuple:
         nowVerifyModel, nowFixedRatio = self.getFixedNodeInfo(self.lmodel, nowSplit)

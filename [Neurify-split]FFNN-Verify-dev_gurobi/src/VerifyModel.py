@@ -35,10 +35,10 @@ class VerifyModel:
         self.addManualConstraints(self.gmodel)
         self.gmodel.optimize()
         if self.gmodel.status == GRB.OPTIMAL:
-            print("launch slover", self.id, False)
+            #print("launch slover", self.id, False)
             return False
         else:
-            print("launch slover", self.id, True)
+            #print("launch slover", self.id, True)
             return True
 
     def initAllBounds(self):
@@ -56,11 +56,10 @@ class VerifyModel:
         elif GlobalSetting.preSolveMethod == 3:
             self.symbolIntervalPropation_0sia_or_1slr(1)
         elif GlobalSetting.preSolveMethod == 4:
-            pass
-            # res = getNormaliseInput(self.propertyIndexReadyToVerify)
-            # self.lmodel.inputLayer.var_bounds_in_cmp["ub"] = self.lmodel.inputLayer.var_bounds_out_cmp["ub"] = res[0]
-            # self.lmodel.inputLayer.var_bounds_in_cmp["lb"] = self.lmodel.inputLayer.var_bounds_out_cmp["lb"] = res[1]
-            # self.symbolIntervalPropation_sia_and_slr()
+            res = self.spec.getInputBounds()
+            self.lmodel.inputLayer.var_bounds_in_cmp["ub"] = self.lmodel.inputLayer.var_bounds_out_cmp["ub"] = res[0]
+            self.lmodel.inputLayer.var_bounds_in_cmp["lb"] = self.lmodel.inputLayer.var_bounds_out_cmp["lb"] = res[1]
+            self.symbolIntervalPropation_sia_and_slr()
 
     def intervalPropation(self):
         preLayer_u = self.lmodel.inputLayer.var_bounds_out["ub"]
@@ -133,15 +132,15 @@ class VerifyModel:
             preLayer = layer
 
         for layer in self.lmodel.lmodels:
-            slr_out_diff = 0
+            # slr_out_diff = 0
             # merge_out_diff = 0
             maxUpper_out_sia = -1 * sys.maxsize
             minLower_out_sia = +1 * sys.maxsize
             maxUpper_out_slr = -1 * sys.maxsize
             minLower_out_slr = +1 * sys.maxsize
             for i in range(layer.size):
-                slr_out_diff += layer.var_bounds_out["ub"][i] - \
-                    layer.var_bounds_out["lb"][i]
+                # slr_out_diff += layer.var_bounds_out["ub"][i] - \
+                    # layer.var_bounds_out["lb"][i]
                 if layer.var_bounds_out_cmp["ub"][i] > maxUpper_out_sia:
                     maxUpper_out_sia = layer.var_bounds_out_cmp["ub"][i]
                 if layer.var_bounds_out_cmp["lb"][i] < minLower_out_sia:
@@ -150,8 +149,8 @@ class VerifyModel:
                     maxUpper_out_slr = layer.var_bounds_out["ub"][i]
                 if layer.var_bounds_out["lb"][i] < minLower_out_slr:
                     minLower_out_slr = layer.var_bounds_out["lb"][i]
-            print(layer.id, "outter")
-            print(maxUpper_out_sia, maxUpper_out_slr)
+            # print(layer.id, "outter")
+            # print(maxUpper_out_sia, maxUpper_out_slr)
             if layer.id < self.lmodel.layerNum - 1:
                 layer.var_bounds_in["ub"] = np.minimum(
                     layer.var_bounds_in["ub"], layer.var_bounds_in_cmp["ub"])
@@ -160,9 +159,9 @@ class VerifyModel:
                 #layer.var_bounds_out["ub"] = np.minimum(layer.var_bounds_out["ub"], layer.var_bounds_out_cmp["ub"])
                 #layer.var_bounds_out["lb"] = np.maximum(layer.var_bounds_out["lb"], layer.var_bounds_out_cmp["lb"])
 
-            '''for i in range(layer.size):
-                merge_out_diff += layer.var_bounds_out["ub"][i] - layer.var_bounds_out["lb"][i]
-            print(slr_out_diff, merge_out_diff)'''
+            # for i in range(layer.size):
+            #     merge_out_diff += layer.var_bounds_out["ub"][i] - layer.var_bounds_out["lb"][i]
+            # print(slr_out_diff, merge_out_diff)
 
     def getFixedNodeRatio(self) -> float:
         return self.lmodel.getFixedNodeRatio()

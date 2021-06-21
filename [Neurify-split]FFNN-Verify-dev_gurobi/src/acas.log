@@ -1,0 +1,33 @@
+splitting process num: 1
+vmodel solver process num: 4
+splitting fixed ratio theshold: 0.7
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+finally result: SAT
+total time    : 50.93348601227626
+
+finally result: SAT
+total time    : 12.630853503011167
+
+finally result: SAT
+total time    : 36.729594964999706
+
+finally result: SAT
+total time    : 4.575625340919942
+
+finally result: SAT
+total time    : 2.2877951711416245
+
+finally result: SAT
+total time    : 1.6151215401478112
+
+finally result: UNSAT
+total time    : 0.4106958322227001
+
+finally result: UNSAT
+total time    : 0.32927086437121034
+
+finally result: UNSAT
+total time    : 0.40842996537685394
+
