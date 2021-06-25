@@ -1,6 +1,3 @@
-from numpy.lib.shape_base import split
-
-
 class Options:
     def __init__(
             self,
@@ -23,7 +20,3 @@ class GlobalSetting:
     # 4 sia and slr
     preSolveMethod = 3
     use_bounds_opt = True
-    SPLIT_THRESHOLD = 0.7
-    # splitting_processes_num应该取2^k(k = 0,1,2,3...)
-    splitting_processes_num = 1
-    vmodel_verify_processes_num = 4
