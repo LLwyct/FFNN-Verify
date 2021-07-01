@@ -5,7 +5,7 @@ from solverClass import Solver
 from networkClass import Network
 from gurobipy import GRB, quicksum
 from options import GlobalSetting
-
+from timeit import default_timer as timer
 def getOptions():
     parse = argparse.ArgumentParser()
     parse.add_argument(
@@ -61,6 +61,7 @@ def mainForRun(case, verifyType="acas"):
         solver.solve(verifyType)
         print(networkFileName)
     elif verifyType == "mnist":
+        start = timer()
         if GlobalSetting.preSolveMethod == 4:
             GlobalSetting.preSolveMethod = 3
         imgPklFileName = "im{}.pkl".format(case)
@@ -83,7 +84,10 @@ def mainForRun(case, verifyType="acas"):
         solver.m.addConstr(quicksum(oC) <= 9)
         solver.m.addConstr(quicksum(oC) >= 1)
         solver.m.update()
-        solver.solve(type)
+        res = solver.solve(type)
+        end = timer()
+        with open("result.log", "at") as f:
+            f.write("{} {} {:.2f}\n".format(case, res, end - start))
         print(imgPklFileName)
 
     '''
@@ -99,6 +103,6 @@ if __name__ == "__main__":
     mnist 用于测试图片鲁棒性类的网络
     acas  用于测试属性安全类的网络
     '''
-    for i in range(6, 7):
-        mainForRun(i, verifyType="acas")
+    for i in range(1, 101):
+        mainForRun(i, verifyType="mnist")
     # mainForOuterScript()

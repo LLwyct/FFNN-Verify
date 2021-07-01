@@ -111,6 +111,8 @@ class Solver:
             preLayer = layer
 
     def addManualConstraints(self, m):
+        if self.net.verifyType == "mnist":
+            return
         m.update()
         # 理论上在这里添加输出层上的约束
         constraints = property.acas_properties[self.net.propertyIndexReadyToVerify]["outputConstraints"][-1]
@@ -176,7 +178,9 @@ class Solver:
     def solve(self, verifyType):
         self.m.Params.outputFlag = 1
         self.m.optimize()
+        res = ""
         if self.m.status == GRB.OPTIMAL:
+            res= 'unsat'
             print(">>>>>>>>>>unsat>>>>>>>>>>")
             if verifyType == "acas":
                 for i, X in enumerate(self.net.lmodel[-1].var):
@@ -184,13 +188,21 @@ class Solver:
                 for i, X in enumerate(self.net.inputLmodel.var):
                     print("X_" + str(i), X.x)
         else:
+            res = 'sat'
             print(">>>>>>>>>>>sat>>>>>>>>>>>")
+        return res
 
     def optimize_bounds(self):
         m = gp.Model("approx")
         m.Params.OutputFlag = 0
         opt_bounds_num = 0
         # 添加输入层的COUTINUE变量，并添加输入层约束
+        '''
+        我们所说的一个relu节点，它所对应的区间是out，relu节点与它的激活函数是绑定到一起的。
+        而为什么在设计一个layer类的时候，要有var_bounds_in 和 var_bounds_out 两个区间呢？
+        可以相像var_bounds_in像是神经元的一个突触，它用来接收上一层var_bounds_out和这一层的weight的点积而来的值
+        这个值相当于relu节点的横坐标，当此值经过relu的激活后，才算的上是relu节点真正的值，并且此值作为out向下一层继续传递
+        '''
         self.indexToVar.append(
             [
                 m.addVar(
@@ -204,6 +216,8 @@ class Solver:
         self.net.inputLmodel.setVar(self.indexToVar[-1])
         m.update()
 
+        # 添加lmodel[0]的变量，因为对于第一个隐藏层来说它的边界由输入层经过一次区间传播而来，一定是精确的
+        # 因此不需要对其边界进行优化
         self.indexToVar.append(
             [
                 m.addVar(
@@ -215,6 +229,8 @@ class Solver:
         )
         self.net.lmodel[0].setVar(self.indexToVar[-1])
         m.update()
+
+        self.net.lmodel[0].addConstr(self.net.inputLmodel, m, 1)
 
         # 添加lmodel[1]及其之后的变量，因为对于lmodel[0]，即使是区间算术，也很难造成较大的误差因此，不进行边界优化
 
@@ -231,7 +247,7 @@ class Solver:
                     ub=ub,
                     lb=lb
                 )
-
+                # 这里只需要创建一个==的约束，因为这里优化的是激活前的上下界
                 m.addConstr(obj == wx_plus_b[j])
 
                 m.update()
@@ -257,6 +273,11 @@ class Solver:
                 m.remove(m.getVars()[-1])
                 m.remove(m.getConstrs()[-1])
                 m.update()
+            # 当这层的每一个节点都分别优化完了， 更新了in的区间范围，别忘了更新out的区间范围
+            self.net.lmodel[i].var_bounds_out["ub"] = np.maximum(self.net.lmodel[i].var_bounds_in["ub"], 0)
+            self.net.lmodel[i].var_bounds_out["lb"] = np.maximum(self.net.lmodel[i].var_bounds_in["lb"], 0)
+
+            # 当这层的每一个节点都分别优化完了，把这一层的全部节点添加到模型， 并建立与上一层的约束，进行下一轮循环
             self.indexToVar.append(
                 [
                     m.addVar(
@@ -267,6 +288,7 @@ class Solver:
                 ]
             )
             self.net.lmodel[i].setVar(self.indexToVar[-1])
+            self.net.lmodel[i].addConstr(self.net.lmodel[i-1], m, 1)
             m.update()
 
         return opt_bounds_num

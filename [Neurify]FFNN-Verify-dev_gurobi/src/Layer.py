@@ -185,6 +185,11 @@ class ReluLayer(Layer):
         self.reluVar:   ndarray = np.empty(self.size)
 
     def addConstr(self, preLayer: Layer, gmodel: Model, constrMethod: int):
+        '''
+            -1 跟着全局走
+            0 精确约束
+            1 三角松弛
+        '''
         wx_add_b = np.dot(self.weight, preLayer.var) + self.bias
         constrMethod = GlobalSetting.constrMethod if constrMethod == -1 else constrMethod
         if constrMethod == 0:

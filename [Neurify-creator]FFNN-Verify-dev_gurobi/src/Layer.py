@@ -4,7 +4,7 @@ from numpy import ndarray
 from typing import Union, List, Dict, Optional
 from gurobipy import Model
 from options import GlobalSetting
-from LinearFunctions import LinearFunctions
+from LinearFunction import LinearFunction
 
 class Layer:
     def __init__(self, id, layer_type="unknown"):
@@ -12,7 +12,7 @@ class Layer:
         self.type: str = layer_type
         self.size: Optional[int] = None
         self.id = id
-        self.var_bounds_in: Dict[str, Optional[ndarray]] = {
+        self.var_bounds_in: Dict[str, Optional['ndarray']] = {
             "ub": None,
             "lb": None
         }
@@ -20,7 +20,7 @@ class Layer:
             "ub": None,
             "lb": None
         }
-        self.var_bounds_in_cmp: Dict[str, Optional[ndarray]] = {
+        self.var_bounds_in_cmp: Dict[str, Optional['ndarray']] = {
             "ub": None,
             "lb": None
         }
@@ -28,7 +28,7 @@ class Layer:
             "ub": None,
             "lb": None
         }
-        self.bound_equations: Dict[str, Dict[str, Optional[LinearFunctions]]] = {
+        self.bound_equations: Dict[str, Dict[str, Optional['LinearFunction']]] = {
             'in': {
                 'lb': None,
                 'ub': None
@@ -38,7 +38,7 @@ class Layer:
                 'ub': None
             }
         }
-        self.bound_equations_cmp: Dict[str, Dict[str, Optional[LinearFunctions]]] = {
+        self.bound_equations_cmp: Dict[str, Dict[str, Optional['LinearFunction']]] = {
             'in': {
                 'lb': None,
                 'ub': None
@@ -63,7 +63,7 @@ class Layer:
     def setSize(self, size):
         self.size = size
 
-    def _compute_in_bounds_sia_Eqs(self, pLayerUpperEq: Optional[LinearFunctions], pLayerLowerEq: Optional[LinearFunctions]) -> Dict[str, LinearFunctions]:
+    def _compute_in_bounds_sia_Eqs(self, pLayerUpperEq: Optional['LinearFunction'], pLayerLowerEq: Optional['LinearFunction']) -> Dict[str, 'LinearFunction']:
         weight_plus = np.maximum(self.weight, np.zeros(self.weight.shape))
         weight_neg = np.minimum(self.weight, np.zeros(self.weight.shape))
 
@@ -78,8 +78,8 @@ class Layer:
         lowerConst = weight_plus.dot(pLowerConst) + weight_neg.dot(pUpperConst) + self.bias
 
         return {
-            "ub": LinearFunctions(upperMatrix, upperConst),
-            "lb": LinearFunctions(lowerMatrix, lowerConst)
+            "ub": LinearFunction(upperMatrix, upperConst),
+            "lb": LinearFunction(lowerMatrix, lowerConst)
         }
 
     def _compute_out_bounds_0sia_or_1slr_Eqs(self, Eqin, inputLayer, method):
@@ -89,8 +89,8 @@ class Layer:
             "lb": Eqin["lb"].getLowerOutEqThroughRelu(inputLayer)
         }
         '''
-        inUPEq: LinearFunctions = Eqin["ub"]
-        inLOWEq: LinearFunctions = Eqin["lb"]
+        inUPEq: 'LinearFunction' = Eqin["ub"]
+        inLOWEq: 'LinearFunction' = Eqin["lb"]
 
         # 先获得一份未来用于构造函数参数的拷贝
         newUpMatrix = inUPEq.matrix.copy()
@@ -160,8 +160,8 @@ class Layer:
                     newLowOffset[i] = adj * newLowOffset[i]
 
         return {
-            "ub": LinearFunctions(newUpMatrix, newUpOffset),
-            "lb": LinearFunctions(newLowMatrix, newLowOffset)
+            "ub": LinearFunction(newUpMatrix, newUpOffset),
+            "lb": LinearFunction(newLowMatrix, newLowOffset)
         }
 
 
@@ -171,20 +171,20 @@ class InputLayer(Layer):
         self.type = layer_type
         self.size = size
 
-    def setBounds(self, lb: ndarray, ub: ndarray):
+    def setBounds(self, ub: 'ndarray', lb: 'ndarray'):
         self.var_bounds_in["ub"] = self.var_bounds_out["ub"] = ub
         self.var_bounds_in["lb"] = self.var_bounds_out["lb"] = lb
 
 class ReluLayer(Layer):
-    def __init__(self, id, w: ndarray, b: ndarray, layer_type: str = "relu"):
+    def __init__(self, id, w: 'ndarray', b: 'ndarray', layer_type: str = "relu"):
         super(ReluLayer, self).__init__(id, layer_type)
         self.type:      str     = layer_type
         self.size:      int     = b.size
-        self.weight:    ndarray = w
-        self.bias:      ndarray = b
-        self.reluVar:   ndarray = np.empty(self.size)
+        self.weight:    'ndarray' = w
+        self.bias:      'ndarray' = b
+        self.reluVar:   'ndarray' = np.empty(self.size)
 
-    def addConstr(self, preLayer: Layer, gmodel: Model, constrMethod: int):
+    def addConstr(self, preLayer: 'Layer', gmodel: 'Model', constrMethod: int):
         wx_add_b = np.dot(self.weight, preLayer.var) + self.bias
         constrMethod = GlobalSetting.constrMethod if constrMethod == -1 else constrMethod
         if constrMethod == 0:
@@ -228,11 +228,11 @@ class ReluLayer(Layer):
 
                     # 4
                     gmodel.addConstr(curNode <= upper_bounds * self.reluVar[curNodeIdx])
-            print()
+            '''print()
             print(self.id, self.type, self.size, ignoreBinaryVarNum)
             print('maxupper', maxUpper)
             print('minLower', minLower)
-            print('sum_diff', sum_diff)
+            print('sum_diff', sum_diff)'''
 
         elif constrMethod == 1:
             '''
@@ -269,7 +269,7 @@ class ReluLayer(Layer):
             pass
 
     # 该函数用于计算在符号传播或符号线性松弛等预计算过程中每一层的Eqution以及具体边界的传播情况
-    def compute_Eq_and_bounds_0sia_or_1slr(self, preLayer: Layer, inputLayer: InputLayer, method: int):
+    def compute_Eq_and_bounds_0sia_or_1slr(self, preLayer: 'Layer', inputLayer: 'InputLayer', method: int):
         # 主函数，用于计算符号传播
         # part1：计算当前层输入的Eq
         self.bound_equations["in"] = self._compute_in_bounds_sia_Eqs(
@@ -302,7 +302,7 @@ class ReluLayer(Layer):
         self.computeBoundsError()
 
     # 该函数用于结合计算
-    def compute_Eq_and_bounds_sia_and_slr(self, preLayer: Layer, inputLayer: InputLayer):
+    def compute_Eq_and_bounds_sia_and_slr(self, preLayer: 'Layer', inputLayer: 'InputLayer'):
         # 主函数，用于计算符号传播
         # part1：计算当前层输入的Eq
         self.bound_equations["in"] = self._compute_in_bounds_sia_Eqs(
@@ -371,30 +371,45 @@ class ReluLayer(Layer):
 
         self.computeBoundsError()
 
-
     # 计算在符号传播或符号线性松弛等预计算过程中是否出现下界大于上界的情况
     def computeBoundsError(self):
         num = 0
         for i in range(self.size):
             if self.var_bounds_in["lb"][i] > self.var_bounds_in["ub"][i]:
                 num += 1
-                print("Out of in bounds ", i)
+                #print("Out of in bounds ", i)
             if self.var_bounds_in_cmp["lb"] is not None and self.var_bounds_in_cmp["lb"][i] > self.var_bounds_in_cmp["ub"][i]:
                 num += 1
-                print("optimize lead Out of inner bounds ", i)
+                #print("optimize lead Out of inner bounds ", i)
         if num != 0:
-            print("value Error , inbounds, ", self.id, num)
+            pass
+            #print("value Error , inbounds, ", self.id, num)
 
         num = 0
         for i in range(self.size):
             if self.var_bounds_out["lb"][i] > self.var_bounds_out["ub"][i]:
                 num += 1
-                print("Out of out bounds ", i)
+                #print("Out of out bounds ", i)
             if self.var_bounds_out_cmp["lb"] is not None and self.var_bounds_out_cmp["lb"][i] > self.var_bounds_out_cmp["ub"][i]:
                 num += 1
-                print("optimize lead out of outter bounds ", i)
+                #print("optimize lead out of outter bounds ", i)
         if num != 0:
-            print("value Error , outbounds, ", self.id, num)
+            pass
+            #print("value Error , outbounds, ", self.id, num)
+
+    def getFixedNodeNum(self):
+        fixedNodeNum = self.size
+        for i in range(self.size):
+            if self.var_bounds_in["ub"][i] > 0 and self.var_bounds_in["lb"][i] < 0:
+                fixedNodeNum -= 1
+        if fixedNodeNum < 0:
+            raise Exception("Error")
+        return fixedNodeNum
+
+    def getNotFixedNode(self):
+        for i in range(self.size):
+            if self.var_bounds_in["ub"] < 0 or self.var_bounds_in["lb"] > 0:
+                return self.var[i]
 
 class LinearLayer(Layer):
     def __init__(self, id, w:ndarray, b:ndarray, layer_type: str = "linear"):
@@ -418,10 +433,10 @@ class LinearLayer(Layer):
             if self.var_bounds_in["lb"][i] < minLower:
                 minLower = self.var_bounds_in["lb"][i]
             sum_diff += self.var_bounds_in["ub"][i] - self.var_bounds_in["lb"][i]
-        print(self.id, self.type)
-        print('maxupper', maxUpper)
-        print('minLower', minLower)
-        print('sum_diff', sum_diff)
+        #print(self.id, self.type)
+        #print('maxupper', maxUpper)
+        #print('minLower', minLower)
+        #print('sum_diff', sum_diff)
 
     def compute_Eq_and_bounds(self, preLayer, inputLayer):
         # 这里因为对于Linear层，in和out是一样的，所以我们直接使用in的函数结果返回给out，因为在利用区间的值赋值给M的时候，只需要out不需要in
@@ -442,7 +457,7 @@ class LinearLayer(Layer):
 
 
 class OutputLayer(LinearLayer):
-    def __init__(self, id: int, w:ndarray, b:ndarray, layer_type: str="output", size=0):
+    def __init__(self, id: int, w:'ndarray', b:'ndarray', layer_type: str="output", size=0):
         super(OutputLayer, self).__init__(id, w, b)
         self.type = layer_type
         self.size = size
