@@ -1,5 +1,5 @@
 import copy
-from typing import List
+from typing import List, Set
 import numpy as np
 import sys
 from ConstraintFormula import Conjunctive, Disjunctive
@@ -40,8 +40,11 @@ class VerifyModel:
             if opt_num == 0:
                 break
         if GlobalSetting.use_binary_heuristic_method == 0:
+            # 先添加Gurobi Model的全部变量，CONTINUES变量和BINARY变量
             self.addGurobiVarFromLayerModel(self.gmodel)
-            self.addGurobiVarFromLayerModel(self.gmodel)
+            # 添加层与层之间变量的约束
+            self.addGurobiConstrsBetweenLayers(self.gmodel)
+            # 添加输出层人为规定的安全约束
             self.addManualConstraints(self.gmodel)
             self.gmodel.optimize()
             if self.gmodel.status == GRB.OPTIMAL:
@@ -51,25 +54,36 @@ class VerifyModel:
                 # print("launch slover", self.id, True)
                 return True
         elif GlobalSetting.use_binary_heuristic_method == 1:
-            self.binaryHeuristicAddConstrs()
+            return self.binaryHeuristicAddConstrs()
 
 
-    def binaryHeuristicAddConstrs(self):
-        # init 到初始状态
-        self.gmodel.remove(self.gmodel.getVars())
-        self.gmodel.remove(self.gmodel.getConstrs())
-        self.indexToVar = []
-        self.indexToReluvar: List[List] = []
-        notFixedNode = []
+    def binaryHeuristicAddConstrs(self) -> bool:
+        notFixedNodes: List = []
         for layer in self.lmodel.lmodels:
             if layer.type == "relu":
-                layer.getNotFixedNode()
-        lo = 0
-        hi = self.lmodel.layerNum - 2
+                notFixedNodes.extend(layer.getNotFixedNode())
+        lo: int = 0
+        hi: int = len(notFixedNodes) // 2
         while lo <= hi:
+            # init 到初始状态
+            self.indexToVar = []
+            self.indexToReluvar: List[List] = []
+            self.gmodel.remove(self.gmodel.getVars())
+            self.gmodel.remove(self.gmodel.getConstrs())
+            self.gmodel.update()
+            self.addGurobiVarFromLayerModel(self.gmodel)
+            self.addGurobiConstrsBetweenLayers(self.gmodel, hi)
+            self.addManualConstraints(self.gmodel)
+            self.gmodel.optimize()
+            if self.gmodel.status == GRB.OPTIMAL:
+                if hi == 0:
+                    return False
+                hi = hi // 2
+                continue
+            else:
+                # 没有解，说明是找不到反例因此是sat的，在使用了松弛后依然是sat则原本必定是sat的
+                return True
 
-        self.addGurobiVarFromLayerModel(self.gmodel)
-        self.addManualConstraints(self.gmodel)
 
     def initAllBounds(self):
         # 初始化/预处理隐藏层及输出层的边界
@@ -253,28 +267,40 @@ class VerifyModel:
             layer.setVar(self.indexToVar[-1])
         m.update()
 
-        '''
-        这里不知道为什么有这一行代码，预计要删除
-        if optimize_bounds == False:
-            # 添加relu节点变量，是二进制变量，0代表非激活y=0，1代表激活y=x
-            for layer in self.lmodel.lmodels:
-                if layer.type == "relu":
-                    self.indexToReluvar.append([m.addVar(vtype=GRB.BINARY, name='reluVar') for _ in range(layer.size)])
-                    layer.setReluVar(self.indexToReluvar[-1])
-                else:
-                    continue
-            m.update()'''
+        
+        # 添加relu节点变量，是二进制变量，0代表非激活y=0，1代表激活y=x
+        for layer in self.lmodel.lmodels:
+            if layer.type == "relu":
+                self.indexToReluvar.append([m.addVar(vtype=GRB.BINARY, name='reluVar') for _ in range(layer.size)])
+                layer.setReluVar(self.indexToReluvar[-1])
+            else:
+                continue
+        m.update()
 
-    def addGurobiConstrsBetweenLayers(self, m: 'gp.Model'):
+    def addGurobiConstrsBetweenLayers(self, m: 'gp.Model', restNum: int = 0):
         # 处理输入层到输出层的约束
         preLayer = self.lmodel.inputLayer
-        for lidx, layer in enumerate(self.lmodel.lmodels):
-            # constrMethod=-1 表示使用全局的约束方法，为以后的优化做准备
-            # constrMethod= 0 表示使用精确地混合整型编码方式进行约束
-            # constrMethod= 1 表示使用三角松弛进行约束
-            constrMethod = 0
-            layer.addConstr(preLayer, m, constrMethod=constrMethod)
-            preLayer = layer
+        if restNum <= 0:
+            for lidx, layer in enumerate(self.lmodel.lmodels):
+                # constrMethod=-1 表示使用全局的约束方法，为以后的优化做准备
+                # constrMethod= 0 表示使用精确地混合整型编码方式进行约束
+                # constrMethod= 1 表示使用三角松弛进行约束
+                constrMethod = 0
+                layer.addConstr(preLayer, m, constrMethod=constrMethod)
+                preLayer = layer
+        elif restNum > 0:
+            restNum = restNum
+            for lidx, layer in enumerate(self.lmodel.lmodels):
+                constrMethod = 0
+                restNum = layer.addConstr_BinaryHeuristic(
+                    preLayer,
+                    m,
+                    constrMethod=constrMethod,
+                    utrnl=None,
+                    restNum=restNum
+                )
+                preLayer = layer
+
 
     def addManualConstraints(self, m: gp.Model):
         m.update()
@@ -349,6 +375,12 @@ class VerifyModel:
         m.Params.OutputFlag = 0
         opt_bounds_num = 0
         # 添加输入层的COUTINUE变量，并添加输入层约束
+        '''
+        我们所说的一个relu节点，它所对应的区间是out，relu节点与它的激活函数是绑定到一起的。
+        而为什么在设计一个layer类的时候，要有var_bounds_in 和 var_bounds_out 两个区间呢？
+        可以相像var_bounds_in像是神经元的一个突触，它用来接收上一层var_bounds_out和这一层的weight的点积而来的值
+        这个值相当于relu节点的横坐标，当此值经过relu的激活后，才算的上是relu节点真正的值，并且此值作为out向下一层继续传递
+        '''
         self.indexToVar.append(
             [
                 m.addVar(
@@ -362,6 +394,8 @@ class VerifyModel:
         self.lmodel.inputLayer.setVar(self.indexToVar[-1])
         m.update()
 
+        # 添加lmodel[0]的变量，因为对于第一个隐藏层来说它的边界由输入层经过一次区间传播而来，一定是精确的
+        # 因此不需要对其边界进行优化
         self.indexToVar.append(
             [
                 m.addVar(
@@ -374,7 +408,7 @@ class VerifyModel:
         self.lmodel.lmodels[0].setVar(self.indexToVar[-1])
         m.update()
 
-        # 添加lmodel[1]及其之后的变量，因为对于lmodel[0]，即使是区间算术，也很难造成较大的误差因此，不进行边界优化
+        self.lmodel.lmodels[0].addConstr(self.lmodel.inputLayer, m, 1)
 
         for i in range(1, self.lmodel.layerNum - 2):
             w = self.lmodel.lmodels[i].weight
@@ -389,11 +423,7 @@ class VerifyModel:
                     ub=ub,
                     lb=lb
                 )
-
-                '''
-                TODO
-                这里好像不对吧，如果是用三角松弛来优化边界，这里为什么就一条constr，一个三角松弛不应该改是三条约束么？
-                '''
+                # 这里只需要创建一个==的约束，因为这里优化的是激活前的上下界
                 m.addConstr(obj == wx_plus_b[j])
 
                 m.update()
@@ -419,6 +449,11 @@ class VerifyModel:
                 m.remove(m.getVars()[-1])
                 m.remove(m.getConstrs()[-1])
                 m.update()
+            # 当这层的每一个节点都分别优化完了， 更新了in的区间范围，别忘了更新out的区间范围
+            self.lmodel.lmodels[i].var_bounds_out["ub"] = np.maximum(self.lmodel.lmodels[i].var_bounds_in["ub"], 0)
+            self.lmodel.lmodels[i].var_bounds_out["lb"] = np.maximum(self.lmodel.lmodels[i].var_bounds_in["lb"], 0)
+
+            # 当这层的每一个节点都分别优化完了，把这一层的全部节点添加到模型， 并建立与上一层的约束，进行下一轮循环
             self.indexToVar.append(
                 [
                     m.addVar(
@@ -429,6 +464,7 @@ class VerifyModel:
                 ]
             )
             self.lmodel.lmodels[i].setVar(self.indexToVar[-1])
+            self.lmodel.lmodels[i].addConstr(self.lmodel.lmodels[i-1], m, 1)
             m.update()
 
         return opt_bounds_num
