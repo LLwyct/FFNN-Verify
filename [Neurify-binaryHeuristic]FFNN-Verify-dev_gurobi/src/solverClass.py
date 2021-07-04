@@ -7,6 +7,7 @@ from networkClass import Network
 import property
 from ConstraintFormula import Disjunctive, Conjunctive
 from options import GlobalSetting
+from timeit import default_timer as timer
 
 class Solver:
     def __init__(self, network: Network):
@@ -26,15 +27,17 @@ class Solver:
         self.indexToReluvar: List[List] = []
 
     def verify(self):
-        use_binary_heuristic_method = 1
+        use_binary_heuristic_method = GlobalSetting.use_binary_heuristic_method
         if use_binary_heuristic_method == 0:
             # 初始化网络级约束
             self.addGurobiVarFromLayerModel(self.m)
             self.addGurobiConstrsBetweenLayers(self.m)
             # 初始化人工约束,暂时用不到这个函数
             self.addManualConstraints(self.m)
-            return self.solve(verifyType=self.net.verifyType)
+            self.m.Params.outputFlag = 1
+            return self.solve()
         elif use_binary_heuristic_method == 1:
+            self.m.Params.outputFlag = 0
             res = self.binaryHeuristicAddConstrs()
             if res == True:
                 return "sat"
@@ -42,30 +45,44 @@ class Solver:
                 return "unsat"
 
     def binaryHeuristicAddConstrs(self):
-        notFixedNodes: List = []
+        notFixedNodesNum: int = 0
         for layer in self.net.lmodel:
             if layer.type == "relu":
-                notFixedNodes.extend(layer.getNotFixedNode())
+                notFixedNodesNum += layer.getNotFixedNode()
         lo: int = 0
-        hi: int = len(notFixedNodes) // 2
+        hi: int = notFixedNodesNum // 2
+        print('sum of not fixed node:', notFixedNodesNum)
+
+
         while lo <= hi:
+            print('resNum', hi)
+            start = timer()
             # init 到初始状态
+            self.m.reset()
+            self.m.remove(self.m.getConstrs())
+            self.m.remove(self.m.getGenConstrs())
+            self.m.remove(self.m.getVars())
+            self.m.update()
             self.indexToVar = []
             self.indexToReluvar: List[List] = []
-            self.m.remove(self.m.getVars())
-            self.m.remove(self.m.getConstrs())
-            self.m.update()
             self.addGurobiVarFromLayerModel(self.m)
             self.addGurobiConstrsBetweenLayers(self.m, hi)
             self.addManualConstraints(self.m)
             self.m.optimize()
+            end = timer()
             if self.m.status == GRB.OPTIMAL:
+                if GlobalSetting.DEBUG_MODE:
+                    print('cost time, {:.2f}'.format(end - start))
+                    print('unsat')
                 if hi == 0:
                     return False
-                hi = hi // 2
-                continue
+                hi = hi // 4
             else:
                 # 没有解，说明是找不到反例因此是sat的，在使用了松弛后依然是sat则原本必定是sat的
+                #print('sat\ncost time, {:.2f}'.format(end-start))
+                #if hi == 0:
+                #    return True
+                #hi = hi // 2
                 return True
 
     # 该函数用于添加输入层以及隐藏层中的网络约束，包括人为规定的输入层约束，人为规定的输出层约束不在该函数中添加
@@ -140,7 +157,7 @@ class Solver:
     def addGurobiConstrsBetweenLayers(self, m, restNum: int = 0):
         # 处理输入层到输出层的约束
         preLayer = self.net.inputLmodel
-        if restNum <= 0:
+        if restNum <= 1:
             for lidx, layer in enumerate(self.net.lmodel):
                 # constrMethod=-1 表示使用全局的约束方法，为以后的优化做准备
                 # constrMethod= 0 表示使用精确地混合整型编码方式进行约束
@@ -148,8 +165,8 @@ class Solver:
                 constrMethod = -1
                 layer.addConstr(preLayer, m, constrMethod=constrMethod)
                 preLayer = layer
-        elif restNum > 0:
-            restNum = restNum
+        else:
+            #restNum = restNum
             for lidx, layer in enumerate(self.net.lmodel):
                 constrMethod = 0
                 restNum = layer.addConstr_BinaryHeuristic(
@@ -163,12 +180,29 @@ class Solver:
 
     def addManualConstraints(self, m):
         if self.net.verifyType == "mnist":
+            label = self.net.label
+            oC = [m.addVar(vtype=GRB.BINARY, name='additional') for i in range(10)]
+            m.update()
+            for i in range(10):
+                if i == label:
+                    m.remove(oC[i])
+                    continue
+                else:
+                    m.addConstr(
+                        (oC[i] == 1) >> (self.net.lmodel[-1].var[i] >= self.net.lmodel[-1].var[label])
+                    )
+            m.update()
+            del oC[label]
+            m.addConstr(quicksum(oC) <= 9)
+            m.addConstr(quicksum(oC) >= 1)
+            m.update()
             return
         m.update()
         # 理论上在这里添加输出层上的约束
         constraints = property.acas_properties[self.net.propertyIndexReadyToVerify]["outputConstraints"][-1]
         if isinstance(constraints, Disjunctive):
             for constr in constraints.constraints:
+                # 这里后续需要优化，constr[0]是什么？ 不利于阅读，应该改成字典类型constr[‘type’]
                 if constr[0] == "VarVar":
                     var1 = m.getVarByName(constr[1])
                     relation = constr[2]
@@ -226,14 +260,14 @@ class Solver:
             m.addConstr(quicksum(additionalConstrBinVar) <= constrlength)
             m.update()
 
-    def solve(self, verifyType):
+    def solve(self):
         self.m.Params.outputFlag = 1
         self.m.optimize()
         res = ""
         if self.m.status == GRB.OPTIMAL:
             res= 'unsat'
             print(">>>>>>>>>>unsat>>>>>>>>>>")
-            if verifyType == "acas":
+            if self.net.verifyType == "acas":
                 for i, X in enumerate(self.net.lmodel[-1].var):
                     print("y_" + str(i), X.x)
                 for i, X in enumerate(self.net.inputLmodel.var):

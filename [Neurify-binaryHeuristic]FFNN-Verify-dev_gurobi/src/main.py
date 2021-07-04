@@ -60,10 +60,9 @@ def mainForRun(case, verifyType="acas"):
         '''
 
         #solver.solve(verifyType)
-        print(solver.verify())
-        print(networkFileName)
+        res = solver.verify()
         end = timer()
-        print("time", end-start)
+        print("{} {} {} {:.2f}\n".format(networkFileName, case, res, end - start))
     elif verifyType == "mnist":
         start = timer()
         if GlobalSetting.preSolveMethod == 4:
@@ -75,23 +74,12 @@ def mainForRun(case, verifyType="acas"):
         network = Network(networkFilePath, fmtType="h5", imgPklFilePath=imgPklFilePath, verifyType="mnist")
         solver = Solver(network)
         # 手动管理输出约束，输入约束在property.py中
-        oC = [solver.m.addVar(vtype=GRB.BINARY) for i in range(10)]
-        solver.m.update()
-        for i in range(10):
-            if i == network.label:
-                solver.m.remove(oC[i])
-                continue
-            else:
-                solver.m.addConstr((oC[i] == 1) >> (network.lmodel[-1].var[i] >= network.lmodel[-1].var[network.label]))
-        solver.m.update()
-        del oC[network.label]
-        solver.m.addConstr(quicksum(oC) <= 9)
-        solver.m.addConstr(quicksum(oC) >= 1)
-        solver.m.update()
-        res = solver.solve(type)
+
+        res = solver.verify()
         end = timer()
-        with open("result.log", "at") as f:
-            f.write("{} {} {:.2f}\n".format(case, res, end - start))
+        #with open("result.log", "at") as f:
+        #    f.write("{} {} {:.2f}\n".format(case, res, end - start))
+        print("{} {} {} {:.2f}\n".format(imgPklFileName, case, res, end - start))
         print(imgPklFileName)
 
     '''
@@ -107,6 +95,6 @@ if __name__ == "__main__":
     mnist 用于测试图片鲁棒性类的网络
     acas  用于测试属性安全类的网络
     '''
-    for i in range(1, 10):
-        mainForRun(i, verifyType="acas")
+    for i in range(1, 101):
+        mainForRun(i, verifyType="mnist")
     # mainForOuterScript()

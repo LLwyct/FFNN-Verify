@@ -233,11 +233,12 @@ class ReluLayer(Layer):
 
                     # 4
                     gmodel.addConstr(curNode <= upper_bounds * self.reluVar[curNodeIdx])
-            print()
-            print(self.id, self.type, self.size, ignoreBinaryVarNum)
-            print('maxupper', maxUpper)
-            print('minLower', minLower)
-            print('sum_diff', sum_diff)
+            if GlobalSetting.DEBUG_MODE:
+                print()
+                print(self.id, self.type, self.size, ignoreBinaryVarNum)
+                print('maxupper', maxUpper)
+                print('minLower', minLower)
+                print('sum_diff', sum_diff)
 
         elif constrMethod == 1:
             '''
@@ -426,11 +427,11 @@ class ReluLayer(Layer):
         self.computeBoundsError()
 
     def getNotFixedNode(self):
-        notFixedNodeList = []
+        notFixedNodesNum = 0
         for i in range(self.size):
             if self.var_bounds_in["ub"][i] > 0 and self.var_bounds_in["lb"][i] < 0:
-                notFixedNodeList.append(self.var[i])
-        return notFixedNodeList
+                notFixedNodesNum += 1
+        return notFixedNodesNum
 
     # 计算在符号传播或符号线性松弛等预计算过程中是否出现下界大于上界的情况
     def computeBoundsError(self):
@@ -478,10 +479,11 @@ class LinearLayer(Layer):
             if self.var_bounds_in["lb"][i] < minLower:
                 minLower = self.var_bounds_in["lb"][i]
             sum_diff += self.var_bounds_in["ub"][i] - self.var_bounds_in["lb"][i]
-        print(self.id, self.type)
-        print('maxupper', maxUpper)
-        print('minLower', minLower)
-        print('sum_diff', sum_diff)
+        if GlobalSetting.DEBUG_MODE:
+            print(self.id, self.type)
+            print('maxupper', maxUpper)
+            print('minLower', minLower)
+            print('sum_diff', sum_diff)
 
     def addConstr_BinaryHeuristic(
         self,
