@@ -51,11 +51,11 @@ class Solver:
                 notFixedNodesNum += layer.getNotFixedNode()
         lo: int = 0
         hi: int = notFixedNodesNum // 2
-        print('sum of not fixed node:', notFixedNodesNum)
-
-
+        if self.net.verifyType == "mnist" and notFixedNodesNum > 30:
+            hi = 30
+        if GlobalSetting.DEBUG_MODE:
+            print('sum of not fixed node:', notFixedNodesNum)
         while lo <= hi:
-            print('resNum', hi)
             start = timer()
             # init 到初始状态
             self.m.reset()
@@ -70,19 +70,17 @@ class Solver:
             self.addManualConstraints(self.m)
             self.m.optimize()
             end = timer()
+            if GlobalSetting.DEBUG_MODE:
+                print('resNum', hi, ', cost time {:.2f}'.format(end - start))
             if self.m.status == GRB.OPTIMAL:
-                if GlobalSetting.DEBUG_MODE:
-                    print('cost time, {:.2f}'.format(end - start))
-                    print('unsat')
                 if hi == 0:
                     return False
-                hi = hi // 4
+                hi = hi // 2
+                if self.net.verifyType == "mnist":
+                    # 如果是mnist数据集，初始的notFixedNodesNum会比较大，并且结果随剩余未固定节点减少变化不明显，因此要加速
+                    hi = int(hi / 1.5)
             else:
                 # 没有解，说明是找不到反例因此是sat的，在使用了松弛后依然是sat则原本必定是sat的
-                #print('sat\ncost time, {:.2f}'.format(end-start))
-                #if hi == 0:
-                #    return True
-                #hi = hi // 2
                 return True
 
     # 该函数用于添加输入层以及隐藏层中的网络约束，包括人为规定的输入层约束，人为规定的输出层约束不在该函数中添加
@@ -157,7 +155,7 @@ class Solver:
     def addGurobiConstrsBetweenLayers(self, m, restNum: int = 0):
         # 处理输入层到输出层的约束
         preLayer = self.net.inputLmodel
-        if restNum <= 1:
+        if restNum <= 2:
             for lidx, layer in enumerate(self.net.lmodel):
                 # constrMethod=-1 表示使用全局的约束方法，为以后的优化做准备
                 # constrMethod= 0 表示使用精确地混合整型编码方式进行约束
@@ -166,7 +164,6 @@ class Solver:
                 layer.addConstr(preLayer, m, constrMethod=constrMethod)
                 preLayer = layer
         else:
-            #restNum = restNum
             for lidx, layer in enumerate(self.net.lmodel):
                 constrMethod = 0
                 restNum = layer.addConstr_BinaryHeuristic(

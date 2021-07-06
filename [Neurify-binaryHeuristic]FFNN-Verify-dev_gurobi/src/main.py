@@ -39,7 +39,7 @@ def mainForOuterScript():
     '''
     gurobi已经提供了关于容忍误差，所以此处不需要考虑舍入问题
     '''
-    solver.solve(options.checkType)
+    solver.solve()
     print(networkFilePath)
 
 def mainForRun(case, verifyType="acas"):
@@ -48,21 +48,13 @@ def mainForRun(case, verifyType="acas"):
         networkFileName = "acas_1_{}.h5".format(case)
         networkFilePath = os.path.abspath(os.path.join("../resources/Acas", networkFileName))
         network = Network(networkFilePath, fmtType="h5", propertyReadyToVerify=3, verifyType="acas")
-
         solver = Solver(network)
-        '''
-        for i in range(50):
-            print("%.5f"%network.lmodel[5].var_bounds_in["ub"][i])
-        print()
-        for i in range(50):
-            print("%.5f"%network.lmodel[5].var_bounds_in["lb"][i])
-        print()
-        '''
-
-        #solver.solve(verifyType)
         res = solver.verify()
         end = timer()
-        print("{} {} {} {:.2f}\n".format(networkFileName, case, res, end - start))
+        if GlobalSetting.write_to_file:
+            with open("result.log", "at") as f:
+                f.write("{} {} {} {:.2f}\n".format(networkFileName, case, res, end - start))
+        print(">{} {} {} {:.2f}\n".format(networkFileName, case, res, end - start))
     elif verifyType == "mnist":
         start = timer()
         if GlobalSetting.preSolveMethod == 4:
@@ -73,20 +65,15 @@ def mainForRun(case, verifyType="acas"):
         networkFilePath = os.path.abspath(os.path.join("../resources/Mnist", networkFileName))
         network = Network(networkFilePath, fmtType="h5", imgPklFilePath=imgPklFilePath, verifyType="mnist")
         solver = Solver(network)
-        # 手动管理输出约束，输入约束在property.py中
-
         res = solver.verify()
         end = timer()
-        #with open("result.log", "at") as f:
-        #    f.write("{} {} {:.2f}\n".format(case, res, end - start))
-        print("{} {} {} {:.2f}\n".format(imgPklFileName, case, res, end - start))
-        print(imgPklFileName)
-
+        if GlobalSetting.write_to_file:
+            with open("result.log", "at") as f:
+                f.write("{} {} {} {:.2f}\n".format(imgPklFileName, case, res, end - start))
+        print(">{} {} {} {:.2f}\n".format(imgPklFileName, case, res, end - start))
     '''
     gurobi已经提供了关于容忍误差，所以此处不需要考虑舍入问题
     '''
-    # solver.m.setObjective()
-
 
 if __name__ == "__main__":
     # 默认作为脚本使用，如为了方便测试可以使用mainForRun
@@ -95,6 +82,6 @@ if __name__ == "__main__":
     mnist 用于测试图片鲁棒性类的网络
     acas  用于测试属性安全类的网络
     '''
-    for i in range(1, 101):
-        mainForRun(i, verifyType="mnist")
+    for i in range(3, 4):
+        mainForRun(i, verifyType="acas")
     # mainForOuterScript()
