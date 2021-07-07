@@ -82,6 +82,6 @@ if __name__ == "__main__":
     mnist 用于测试图片鲁棒性类的网络
     acas  用于测试属性安全类的网络
     '''
-    for i in range(3, 4):
-        mainForRun(i, verifyType="acas")
+    for i in range(1, 51):
+        mainForRun(i, verifyType="mnist")
     # mainForOuterScript()

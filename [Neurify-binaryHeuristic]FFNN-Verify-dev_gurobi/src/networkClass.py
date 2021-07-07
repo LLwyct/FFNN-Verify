@@ -8,9 +8,10 @@ from keras.models import load_model
 from property import getNormaliseInput
 from LinearFunctions import LinearFunctions
 from options import GlobalSetting
-
+from keras import Model
 class Network:
     def __init__(self, path="", fmtType="h5", propertyReadyToVerify=-1, imgPklFilePath="", verifyType="acas"):
+        self.networkModel: Optional['Model'] = None
         self.networkFilePath: str = path
         self.netFmtType: str = fmtType
         self.verifyType = verifyType
@@ -245,4 +246,4 @@ class Network:
             self.weights.append(layer.get_weights()[0].T)
             self.biases.append(layer.get_weights()[1])
             self.eachLayerNums.append(len(layer.get_weights()[1]))
-        pass
+        self.networkModel = net_model

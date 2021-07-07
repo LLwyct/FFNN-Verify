@@ -8,6 +8,7 @@ import property
 from ConstraintFormula import Disjunctive, Conjunctive
 from options import GlobalSetting
 from timeit import default_timer as timer
+from property import acas_denormalise_output
 
 class Solver:
     def __init__(self, network: Network):
@@ -38,13 +39,13 @@ class Solver:
             return self.solve()
         elif use_binary_heuristic_method == 1:
             self.m.Params.outputFlag = 0
-            res = self.binaryHeuristicAddConstrs()
+            res = self.checkSATWithbinaryHeuristicMethod()
             if res == True:
                 return "sat"
             else:
                 return "unsat"
 
-    def binaryHeuristicAddConstrs(self):
+    def checkSATWithbinaryHeuristicMethod(self):
         notFixedNodesNum: int = 0
         for layer in self.net.lmodel:
             if layer.type == "relu":
@@ -73,9 +74,15 @@ class Solver:
             if GlobalSetting.DEBUG_MODE:
                 print('resNum', hi, ', cost time {:.2f}'.format(end - start))
             if self.m.status == GRB.OPTIMAL:
+                inputVar = [self.m.getVarByName("X{}".format(i)) for i in range(self.net.inputLmodel.size)]
+                inputVar = [Var.X for Var in inputVar]
+                res = self.isTrulyConterExample(inputVar)
+                if res:
+                    print("******find counter example")
+                    return False
                 if hi == 0:
                     return False
-                hi = hi // 2
+                hi = int(hi // 2)
                 if self.net.verifyType == "mnist":
                     # 如果是mnist数据集，初始的notFixedNodesNum会比较大，并且结果随剩余未固定节点减少变化不明显，因此要加速
                     hi = int(hi / 1.5)
@@ -194,68 +201,69 @@ class Solver:
             m.addConstr(quicksum(oC) >= 1)
             m.update()
             return
-        m.update()
-        # 理论上在这里添加输出层上的约束
-        constraints = property.acas_properties[self.net.propertyIndexReadyToVerify]["outputConstraints"][-1]
-        if isinstance(constraints, Disjunctive):
-            for constr in constraints.constraints:
-                # 这里后续需要优化，constr[0]是什么？ 不利于阅读，应该改成字典类型constr[‘type’]
-                if constr[0] == "VarVar":
-                    var1 = m.getVarByName(constr[1])
-                    relation = constr[2]
-                    var2 = m.getVarByName(constr[3])
-                    if relation == "GT":
-                        m.addConstr(var1 <= var2)
-                    elif relation == "LT":
-                        m.addConstr(var1 >= var2)
-                    elif relation == "EQ":
-                        pass
-                    else:
-                        raise Exception("输出约束关系异常")
-                elif constr[0] == "VarValue":
-                    var = m.getVarByName(constr[1])
-                    relation = constr[2]
-                    value = m.getVarByName(constr[3])
-                    if relation == "GT":
-                        m.addConstr(var <= value)
-                    elif relation == "LT":
-                        m.addConstr(var >= value)
-                    elif relation == "EQ":
-                        pass
-                    else:
-                        raise Exception("输出约束关系异常")
-        elif isinstance(constraints, Conjunctive):
-            constrlength = len(constraints.constraints)
-            additionalConstrBinVar = [m.addVar(vtype=GRB.BINARY) for _ in range(constrlength)]
-            for (i, constr) in enumerate(constraints.constraints):
-                if constr[0] == "VarVar":
-                    var1 = m.getVarByName(constr[1])
-                    relation = constr[2]
-                    var2 = m.getVarByName(constr[3])
-                    if relation == "GT":
-                        m.addConstr((additionalConstrBinVar[i] == 1) >> (var1 <= var2))
-                    elif relation == "LT":
-                        m.addConstr((additionalConstrBinVar[i] == 1) >> (var1 >= var2))
-                    elif relation == "EQ":
-                        pass
-                    else:
-                        raise Exception("输出约束关系异常")
-                elif constr[0] == "VarValue":
-                    var = m.getVarByName(constr[1])
-                    relation = constr[2]
-                    value = int(constr[3])
-                    if relation == "GT":
-                        m.addConstr((additionalConstrBinVar[i] == 1) >> (var <= value))
-                    elif relation == "LT":
-                        m.addConstr((additionalConstrBinVar[i] == 1) >> (var >= value))
-                    elif relation == "EQ":
-                        m.addConstr(var >= value)
-                    else:
-                        raise Exception("输出约束关系异常")
-                m.update()
-            m.addConstr(quicksum(additionalConstrBinVar) >= 1)
-            m.addConstr(quicksum(additionalConstrBinVar) <= constrlength)
+        elif self.net.verifyType == "acas":
             m.update()
+            # 理论上在这里添加输出层上的约束
+            constraints = property.acas_properties[self.net.propertyIndexReadyToVerify]["outputConstraints"][-1]
+            if isinstance(constraints, Disjunctive):
+                for constr in constraints.constraints:
+                    # 这里后续需要优化，constr[0]是什么？ 不利于阅读，应该改成字典类型constr[‘type’]
+                    if constr[0] == "VarVar":
+                        var1 = m.getVarByName(constr[1])
+                        relation = constr[2]
+                        var2 = m.getVarByName(constr[3])
+                        if relation == "GT":
+                            m.addConstr(var1 <= var2)
+                        elif relation == "LT":
+                            m.addConstr(var1 >= var2)
+                        elif relation == "EQ":
+                            pass
+                        else:
+                            raise Exception("输出约束关系异常")
+                    elif constr[0] == "VarValue":
+                        var = m.getVarByName(constr[1])
+                        relation = constr[2]
+                        value = m.getVarByName(constr[3])
+                        if relation == "GT":
+                            m.addConstr(var <= value)
+                        elif relation == "LT":
+                            m.addConstr(var >= value)
+                        elif relation == "EQ":
+                            pass
+                        else:
+                            raise Exception("输出约束关系异常")
+            elif isinstance(constraints, Conjunctive):
+                constrlength = len(constraints.constraints)
+                additionalConstrBinVar = [m.addVar(vtype=GRB.BINARY) for _ in range(constrlength)]
+                for (i, constr) in enumerate(constraints.constraints):
+                    if constr[0] == "VarVar":
+                        var1 = m.getVarByName(constr[1])
+                        relation = constr[2]
+                        var2 = m.getVarByName(constr[3])
+                        if relation == "GT":
+                            m.addConstr((additionalConstrBinVar[i] == 1) >> (var1 <= var2))
+                        elif relation == "LT":
+                            m.addConstr((additionalConstrBinVar[i] == 1) >> (var1 >= var2))
+                        elif relation == "EQ":
+                            pass
+                        else:
+                            raise Exception("输出约束关系异常")
+                    elif constr[0] == "VarValue":
+                        var = m.getVarByName(constr[1])
+                        relation = constr[2]
+                        value = int(constr[3])
+                        if relation == "GT":
+                            m.addConstr((additionalConstrBinVar[i] == 1) >> (var <= value))
+                        elif relation == "LT":
+                            m.addConstr((additionalConstrBinVar[i] == 1) >> (var >= value))
+                        elif relation == "EQ":
+                            m.addConstr(var >= value)
+                        else:
+                            raise Exception("输出约束关系异常")
+                    m.update()
+                m.addConstr(quicksum(additionalConstrBinVar) >= 1)
+                m.addConstr(quicksum(additionalConstrBinVar) <= constrlength)
+                m.update()
 
     def solve(self):
         self.m.Params.outputFlag = 1
@@ -374,3 +382,56 @@ class Solver:
             m.update()
 
         return opt_bounds_num
+
+    def isTrulyConterExample(self, inputVar) -> bool:
+        ans: bool = False
+        outputVar = self.net.networkModel.predict(np.array([inputVar]))[0]
+        if self.net.verifyType == "acas":
+            realOutputVar = acas_denormalise_output(np.array(outputVar))
+            constraints = property.acas_properties[self.net.propertyIndexReadyToVerify]["outputConstraints"][-1]
+            if isinstance(constraints, Disjunctive):
+                # 这里是或约束，且是原始的正例或约束，因此只要一条子约束满足，则不是反例
+                for constr in constraints.constraints:
+                    # 这里后续需要优化，constr[0]是什么？ 不利于阅读，应该改成字典类型constr[‘type’]
+                    if constr[0] == "VarVar":
+                        var1Idx = int(constr[1][1:])
+                        relation = constr[2]
+                        var2Idx = int(constr[3][1:])
+                        if relation == "GT":
+                            if realOutputVar[var1Idx] - realOutputVar[var2Idx] > 0.000001:
+                                ans = True
+                                break
+                        elif relation == "LT":
+                            if realOutputVar[var1Idx] < realOutputVar[var2Idx]:
+                                ans = True
+                                break
+                        elif relation == "EQ":
+                            pass
+                        else:
+                            raise Exception("输出约束关系异常")
+                    elif constr[0] == "VarValue":
+                        varIdx = constr[1][1:]
+                        relation = constr[2]
+                        value = float(constr[3])
+                        if relation == "GT":
+                            if realOutputVar[varIdx] >= value:
+                                ans = True
+                        elif relation == "LT":
+                            if realOutputVar[varIdx] <= value:
+                                ans = True
+                        elif relation == "EQ":
+                            pass
+                        else:
+                            raise Exception("输出约束关系异常")
+            elif isinstance(constraints, Conjunctive):
+                pass
+        elif self.net.verifyType == "mnist":
+            # 在mnist数据集里，这里是且约束，只要有一条反子约束不满足则是真实反例
+            label = self.net.label
+            for i in range(self.net.lmodel[-1].size):
+                if i != label and outputVar[i] - outputVar[label] >= -0.000001:
+                    ans = False
+                    break
+                else:
+                    ans = True
+        return not ans
