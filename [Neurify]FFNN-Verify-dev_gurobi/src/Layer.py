@@ -423,10 +423,11 @@ class LinearLayer(Layer):
             if self.var_bounds_in["lb"][i] < minLower:
                 minLower = self.var_bounds_in["lb"][i]
             sum_diff += self.var_bounds_in["ub"][i] - self.var_bounds_in["lb"][i]
-        print(self.id, self.type)
-        print('maxupper', maxUpper)
-        print('minLower', minLower)
-        print('sum_diff', sum_diff)
+        if GlobalSetting.DEBUG:
+            print(self.id, self.type)
+            print('maxupper', maxUpper)
+            print('minLower', minLower)
+            print('sum_diff', sum_diff)
 
     def compute_Eq_and_bounds(self, preLayer, inputLayer):
         # 这里因为对于Linear层，in和out是一样的，所以我们直接使用in的函数结果返回给out，因为在利用区间的值赋值给M的时候，只需要out不需要in

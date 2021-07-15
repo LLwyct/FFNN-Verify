@@ -1,6 +1,4 @@
 from Layer import InputLayer, ReluLayer, LinearLayer
-import keras
-from keras.models import load_model
 from typing import List, Optional, Union
 from Specification import Specification
 
@@ -15,12 +13,13 @@ class LayerModel:
     # 使用h5或nnet文件来初始化network的每一层weights和bias参数
     def initLayerModel(self, networkFilePath, netFmtType):
         if netFmtType == "h5":
-            self.loadFromH5(networkFilePath)
+            return self.loadFromH5(networkFilePath)
         elif netFmtType == "nnet":
-            self.loadFromNnet(networkFilePath)
+            return self.loadFromNnet(networkFilePath)
 
     # 使用spec初始化输入层的上下界
     def loadSpec(self, spec:'Specification'):
+        # set input bounds from spec
         self.inputLayer.setBounds(spec.inputBounds["ub"], spec.inputBounds["lb"])
 
     def getFixedNodeRatio(self):
@@ -33,19 +32,21 @@ class LayerModel:
         return fixedNodeNum / totalNodeNum
 
     def loadFromH5(self, networkFilePath):
+        from keras.activations import relu, linear
+        from keras.models import load_model
         net_model = load_model(networkFilePath, compile=False)
         self.layerNum = len(net_model.layers) + 1
         self.eachLayerNums.append(net_model.layers[0].get_weights()[0].shape[0])
         self.inputLayer = InputLayer(0, size=self.eachLayerNums[0])
         for i, layer in enumerate(net_model.layers):
-            if layer.activation == keras.activations.relu:
+            if layer.activation == relu:
                 self.lmodels.append(ReluLayer(
                     i + 1,
                     layer.get_weights()[0].T,
                     layer.get_weights()[1],
                     layer_type="relu",
                 ))
-            elif layer.activation == keras.activations.linear:
+            elif layer.activation == linear:
                 self.lmodels.append(LinearLayer(
                     i + 1,
                     layer.get_weights()[0].T,
@@ -55,6 +56,7 @@ class LayerModel:
             else:
                 raise IOError
             self.eachLayerNums.append(len(layer.get_weights()[1]))
+        return net_model
 
     def loadFromNnet(self, networkFilePath):
         pass

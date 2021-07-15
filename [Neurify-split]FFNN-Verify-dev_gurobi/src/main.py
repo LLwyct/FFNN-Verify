@@ -39,5 +39,5 @@ if __name__ == '__main__':
         f.write("presolver method: {}\n".format(GlobalSetting.preSolveMethod))
         f.write("use bounds optimised?: {}\n".format(GlobalSetting.use_bounds_opt))
         f.write("------------------------------------\n")
-    for i in range(6, 7):
+    for i in range(1, 10):
         main_for_run("acas", i)

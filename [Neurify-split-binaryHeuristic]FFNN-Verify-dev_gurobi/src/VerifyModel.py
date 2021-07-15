@@ -10,7 +10,8 @@ from LinearFunction import LinearFunction
 from LayerModel import LayerModel
 import gurobipy as gp
 from gurobipy import GRB, quicksum
-
+from property import acas_denormalise_output, acas_properties
+from keras.models import load_model
 
 class VerifyModel:
     def __init__(self, id: str, lmodel: 'LayerModel', spec: 'Specification'):
@@ -18,16 +19,19 @@ class VerifyModel:
         self.lmodel: 'LayerModel' = copy.deepcopy(lmodel)
         self.spec: 'Specification' = copy.deepcopy(spec)
         self.verifyType = "acas"
-        self.lmodel.loadSpec(self.spec)
+        self.lmodel.loadSpec(self.spec) # load input bounds
         self.gmodel = None
         self.indexToVar: List[List] = []
         self.indexToReluvar: List[List] = []
+        self.networkModel = None
 
-    def verify(self) -> bool:
+    def verify(self, networkModel) -> bool:
         '''
+        networkModel 一般是指神经网络的H5模型
         当sat满足约束的取反时返回False
         当unsat不满足约束的取反时返回True
         '''
+        self.networkModel = load_model(networkModel, compile=False)
         self.gmodel = gp.Model()
         self.gmodel.Params.OutputFlag = 0
         self.indexToVar = []
@@ -36,9 +40,10 @@ class VerifyModel:
             # 属于预处理的步骤，使用三角近似来优化边界，要在initAllBounds之后执行
             self.indexToVar = []
             opt_num = self.optimize_bounds()
-            print("optmise bounds number: ", opt_num)
+            #print("optmise bounds number: ", opt_num)
             if opt_num == 0:
                 break
+            break
         if GlobalSetting.use_binary_heuristic_method == 0:
             # 先添加Gurobi Model的全部变量，CONTINUES变量和BINARY变量
             self.addGurobiVarFromLayerModel(self.gmodel)
@@ -54,33 +59,50 @@ class VerifyModel:
                 # print("launch slover", self.id, True)
                 return True
         elif GlobalSetting.use_binary_heuristic_method == 1:
-            return self.binaryHeuristicAddConstrs()
+            self.gmodel.Params.outputFlag = 0
+            res = self.checkSATWithbinaryHeuristicMethod(self.gmodel)
+            return res
 
 
-    def binaryHeuristicAddConstrs(self) -> bool:
-        notFixedNodes: List = []
+    def checkSATWithbinaryHeuristicMethod(self, m) -> bool:
+        notFixedNodesNum: int = 0
         for layer in self.lmodel.lmodels:
             if layer.type == "relu":
-                notFixedNodes.extend(layer.getNotFixedNode())
+                notFixedNodesNum += layer.getNotFixedNodeNum()
         lo: int = 0
-        hi: int = len(notFixedNodes) // 2
+        hi: int = notFixedNodesNum // 2
+        if self.spec.verifyType == "mnist" and notFixedNodesNum > 30:
+            hi = 30
+        #print("restNum", notFixedNodesNum)
+        hi = 40
         while lo <= hi:
             # init 到初始状态
+            self.gmodel.reset()
+            self.gmodel.remove(self.gmodel.getConstrs())
+            self.gmodel.remove(self.gmodel.getGenConstrs())
+            self.gmodel.remove(self.gmodel.getVars())
             self.indexToVar = []
             self.indexToReluvar: List[List] = []
-            self.gmodel.remove(self.gmodel.getVars())
-            self.gmodel.remove(self.gmodel.getConstrs())
             self.gmodel.update()
             self.addGurobiVarFromLayerModel(self.gmodel)
             self.addGurobiConstrsBetweenLayers(self.gmodel, hi)
             self.addManualConstraints(self.gmodel)
             self.gmodel.optimize()
+            #print("restHi", hi)
             if self.gmodel.status == GRB.OPTIMAL:
+                inputVar = [m.getVarByName("X{}".format(i)) for i in range(self.lmodel.inputLayer.size)]
+                inputVar = [Var.X for Var in inputVar]
+                res = self.isTrulyConterExample(inputVar)
+                if res:
+                    return False
                 if hi == 0:
                     return False
                 hi = hi // 2
-                continue
+                if self.spec.verifyType == "mnist":
+                    # 如果是mnist数据集，初始的notFixedNodesNum会比较大，并且结果随剩余未固定节点减少变化不明显，因此要加速
+                    hi = int(hi / 1.5)
             else:
+                # print("binary search end, sat")
                 # 没有解，说明是找不到反例因此是sat的，在使用了松弛后依然是sat则原本必定是sat的
                 return True
 
@@ -280,7 +302,7 @@ class VerifyModel:
     def addGurobiConstrsBetweenLayers(self, m: 'gp.Model', restNum: int = 0):
         # 处理输入层到输出层的约束
         preLayer = self.lmodel.inputLayer
-        if restNum <= 0:
+        if restNum <= 2:
             for lidx, layer in enumerate(self.lmodel.lmodels):
                 # constrMethod=-1 表示使用全局的约束方法，为以后的优化做准备
                 # constrMethod= 0 表示使用精确地混合整型编码方式进行约束
@@ -301,74 +323,88 @@ class VerifyModel:
                 )
                 preLayer = layer
 
-
     def addManualConstraints(self, m: gp.Model):
-        m.update()
-        # 理论上在这里添加输出层上的约束
-        constraints = self.spec.outputConstr
-        if isinstance(constraints, Disjunctive):
-            for constr in constraints.constraints:
-                if constr[0] == "VarVar":
-                    var1 = m.getVarByName("Y{}".format(constr[1]))
-                    relation = constr[2]
-                    var2 = m.getVarByName("Y{}".format(constr[3]))
-                    if relation == "GT":
-                        m.addConstr(var1 <= var2)
-                    elif relation == "LT":
-                        m.addConstr(var1 >= var2)
-                    elif relation == "EQ":
-                        pass
-                    else:
-                        raise Exception("输出约束关系异常")
-                elif constr[0] == "VarValue":
-                    var = m.getVarByName("Y{}".format(constr[1]))
-                    relation = constr[2]
-                    value = m.getVarByName("Y{}".format(constr[3]))
-                    if relation == "GT":
-                        m.addConstr(var <= value)
-                    elif relation == "LT":
-                        m.addConstr(var >= value)
-                    elif relation == "EQ":
-                        pass
-                    else:
-                        raise Exception("输出约束关系异常")
-        elif isinstance(constraints, Conjunctive):
-            constrlength = len(constraints.constraints)
-            additionalConstrBinVar = [
-                m.addVar(vtype=GRB.BINARY) for _ in range(constrlength)]
-            for (i, constr) in enumerate(constraints.constraints):
-                if constr[0] == "VarVar":
-                    var1 = m.getVarByName(constr[1])
-                    relation = constr[2]
-                    var2 = m.getVarByName(constr[3])
-                    if relation == "GT":
-                        m.addConstr(
-                            (additionalConstrBinVar[i] == 1) >> (var1 <= var2))
-                    elif relation == "LT":
-                        m.addConstr(
-                            (additionalConstrBinVar[i] == 1) >> (var1 >= var2))
-                    elif relation == "EQ":
-                        pass
-                    else:
-                        raise Exception("输出约束关系异常")
-                elif constr[0] == "VarValue":
-                    var = m.getVarByName(constr[1])
-                    relation = constr[2]
-                    value = int(constr[3])
-                    if relation == "GT":
-                        m.addConstr(
-                            (additionalConstrBinVar[i] == 1) >> (var <= value))
-                    elif relation == "LT":
-                        m.addConstr(
-                            (additionalConstrBinVar[i] == 1) >> (var >= value))
-                    elif relation == "EQ":
-                        m.addConstr(var >= value)
-                    else:
-                        raise Exception("输出约束关系异常")
-                m.update()
-            m.addConstr(quicksum(additionalConstrBinVar) >= 1)
-            m.addConstr(quicksum(additionalConstrBinVar) <= constrlength)
+        if self.spec.verifyType == "mnist":
+            label = self.spec.label
+            oC = [m.addVar(vtype=GRB.BINARY, name='additional') for i in range(10)]
             m.update()
+            for i in range(10):
+                if i == label:
+                    m.remove(oC[i])
+                    continue
+                else:
+                    m.addConstr(
+                        (oC[i] == 1) >> (self.lmodel.lmodels[-1].var[i] >= self.lmodel.lmodels[-1].var[label])
+                    )
+            m.update()
+            del oC[label]
+            m.addConstr(quicksum(oC) <= 9)
+            m.addConstr(quicksum(oC) >= 1)
+            m.update()
+            return
+        elif self.spec.verifyType == "acas":
+            m.update()
+            # 理论上在这里添加输出层上的约束
+            constraints = acas_properties[self.spec.propertyReadyToVerify]["outputConstraints"][-1]
+            if isinstance(constraints, Disjunctive):
+                for constr in constraints.constraints:
+                    # 这里后续需要优化，constr[0]是什么？ 不利于阅读，应该改成字典类型constr['type']
+                    if constr[0] == "VarVar":
+                        var1 = m.getVarByName(constr[1])
+                        relation = constr[2]
+                        var2 = m.getVarByName(constr[3])
+                        if relation == "GT":
+                            m.addConstr(var1 <= var2)
+                        elif relation == "LT":
+                            m.addConstr(var1 >= var2)
+                        elif relation == "EQ":
+                            pass
+                        else:
+                            raise Exception("输出约束关系异常")
+                    elif constr[0] == "VarValue":
+                        var = m.getVarByName(constr[1])
+                        relation = constr[2]
+                        value = m.getVarByName(constr[3])
+                        if relation == "GT":
+                            m.addConstr(var <= value)
+                        elif relation == "LT":
+                            m.addConstr(var >= value)
+                        elif relation == "EQ":
+                            pass
+                        else:
+                            raise Exception("输出约束关系异常")
+            elif isinstance(constraints, Conjunctive):
+                constrlength = len(constraints.constraints)
+                additionalConstrBinVar = [m.addVar(vtype=GRB.BINARY) for _ in range(constrlength)]
+                for (i, constr) in enumerate(constraints.constraints):
+                    if constr[0] == "VarVar":
+                        var1 = m.getVarByName(constr[1])
+                        relation = constr[2]
+                        var2 = m.getVarByName(constr[3])
+                        if relation == "GT":
+                            m.addConstr((additionalConstrBinVar[i] == 1) >> (var1 <= var2))
+                        elif relation == "LT":
+                            m.addConstr((additionalConstrBinVar[i] == 1) >> (var1 >= var2))
+                        elif relation == "EQ":
+                            pass
+                        else:
+                            raise Exception("输出约束关系异常")
+                    elif constr[0] == "VarValue":
+                        var = m.getVarByName(constr[1])
+                        relation = constr[2]
+                        value = int(constr[3])
+                        if relation == "GT":
+                            m.addConstr((additionalConstrBinVar[i] == 1) >> (var <= value))
+                        elif relation == "LT":
+                            m.addConstr((additionalConstrBinVar[i] == 1) >> (var >= value))
+                        elif relation == "EQ":
+                            m.addConstr(var >= value)
+                        else:
+                            raise Exception("输出约束关系异常")
+                    m.update()
+                m.addConstr(quicksum(additionalConstrBinVar) >= 1)
+                m.addConstr(quicksum(additionalConstrBinVar) <= constrlength)
+                m.update()
 
     def optimize_bounds(self):
         m = gp.Model("approx")
@@ -468,3 +504,57 @@ class VerifyModel:
             m.update()
 
         return opt_bounds_num
+
+    def isTrulyConterExample(self, inputVar) -> bool:
+        from keras.models import load_model
+        ans: bool = False
+        outputVar = self.networkModel(np.array([inputVar]))[0]
+        if self.spec.verifyType == "acas":
+            realOutputVar = acas_denormalise_output(np.array(outputVar))
+            constraints = acas_properties[self.spec.propertyReadyToVerify]["outputConstraints"][-1]
+            if isinstance(constraints, Disjunctive):
+                # 这里是或约束，且是原始的正例或约束，因此只要一条子约束满足，则不是反例
+                for constr in constraints.constraints:
+                    # 这里后续需要优化，constr[0]是什么？ 不利于阅读，应该改成字典类型constr[‘type’]
+                    if constr[0] == "VarVar":
+                        var1Idx = int(constr[1][1:])
+                        relation = constr[2]
+                        var2Idx = int(constr[3][1:])
+                        if relation == "GT":
+                            if realOutputVar[var1Idx] - realOutputVar[var2Idx] > 0.000001:
+                                ans = True
+                                break
+                        elif relation == "LT":
+                            if realOutputVar[var1Idx] - realOutputVar[var2Idx] < -0.000001:
+                                ans = True
+                                break
+                        elif relation == "EQ":
+                            pass
+                        else:
+                            raise Exception("输出约束关系异常")
+                    elif constr[0] == "VarValue":
+                        varIdx = constr[1][1:]
+                        relation = constr[2]
+                        value = float(constr[3])
+                        if relation == "GT":
+                            if realOutputVar[varIdx] - value >= 0.000001:
+                                ans = True
+                        elif relation == "LT":
+                            if realOutputVar[varIdx] - value <= -0.000001:
+                                ans = True
+                        elif relation == "EQ":
+                            pass
+                        else:
+                            raise Exception("输出约束关系异常")
+            elif isinstance(constraints, Conjunctive):
+                pass
+        elif self.spec.verifyType == "mnist":
+            # 在mnist数据集里，这里是且约束，只要有一条反子约束不满足则是真实反例
+            label = self.spec.label
+            for i in range(self.lmodel.lmodels[-1].size):
+                if i != label and outputVar[i] - outputVar[label] >= -0.000001:
+                    ans = False
+                    break
+                else:
+                    ans = True
+        return not ans

@@ -31,3 +31,23 @@ total time    : 0.32927086437121034
 finally result: UNSAT
 total time    : 0.40842996537685394
 
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.7
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+acas_1_1.h5
+finally result : SAT
+total time     : 133.88
+splitting time : 2.72
+solver time    : 124.21 69
+ avg solver time: 1.80
+
+acas_1_2.h5
+finally result : SAT
+total time     : 33.21
+splitting time : 2.00
+solver time    : 23.63 49
+ avg solver time: 0.48
+

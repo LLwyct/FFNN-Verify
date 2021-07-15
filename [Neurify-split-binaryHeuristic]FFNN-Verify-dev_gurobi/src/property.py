@@ -53,10 +53,10 @@ acas_properties: List[Dict] = [
         "outputConstraints": [
             Disjunctive (
                 [
-                    ("VarVar", "0", "GT", "1"),
-                    ("VarVar", "0", "GT", "2"),
-                    ("VarVar", "0", "GT", "3"),
-                    ("VarVar", "0", "GT", "4"),
+                    ("VarVar", "Y0", "GT", "Y1"),
+                    ("VarVar", "Y0", "GT", "Y2"),
+                    ("VarVar", "Y0", "GT", "Y3"),
+                    ("VarVar", "Y0", "GT", "Y4"),
                 ]
             )
         ]

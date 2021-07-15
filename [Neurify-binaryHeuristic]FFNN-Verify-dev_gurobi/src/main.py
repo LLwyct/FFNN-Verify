@@ -45,7 +45,7 @@ def mainForOuterScript():
 def mainForRun(case, verifyType="acas"):
     if verifyType == "acas":
         start = timer()
-        networkFileName = "acas_1_{}.h5".format(case)
+        networkFileName = "acas_2_{}.h5".format(case)
         networkFilePath = os.path.abspath(os.path.join("../resources/Acas", networkFileName))
         network = Network(networkFilePath, fmtType="h5", propertyReadyToVerify=3, verifyType="acas")
         solver = Solver(network)
@@ -82,6 +82,6 @@ if __name__ == "__main__":
     mnist 用于测试图片鲁棒性类的网络
     acas  用于测试属性安全类的网络
     '''
-    for i in range(1, 51):
-        mainForRun(i, verifyType="mnist")
+    for i in range(1, 10):
+        mainForRun(i, verifyType="acas")
     # mainForOuterScript()

@@ -2,6 +2,7 @@ from Split import Split
 from Network import Network
 from typing import List, Tuple
 from multiprocessing import Queue
+import multiprocessing
 from Specification import Specification
 from options import GlobalSetting
 from SplittingProcess import SplittingProcess
@@ -9,10 +10,15 @@ from ModelVerificationProcess import ModelVerificationProcess
 from EnumMessageType import EnumMessageType
 from operator import itemgetter
 from graphviz import Digraph
+from timeit import default_timer as timer
+
+multiprocessing.set_start_method('spawn', force=True)
+
 
 class MainVerify:
 
     def __init__(self, network: 'Network', spec: 'Specification'):
+        self.spec = spec
         self.jobQueue: 'Queue' = Queue()
         self.infoQueue: 'Queue' = Queue()
         self.messageQueue: 'Queue' = Queue()
@@ -35,11 +41,12 @@ class MainVerify:
                 i+1,
                 self.jobQueue,
                 self.messageQueue,
+                netModel=network.networkFilePath
             ) for i in range(GlobalSetting.vmodel_verify_processes_num)
         ]
 
     def verify(self):
-
+        start = timer()
         cur_jobs_num:                   int   = 0        # splitting进程向solver进程提交的当前作业数
         max_jobs_num:                   int   = 0        # splitting进程向solver进程提交的总作业数
         finalSatResult:                 bool  = True     # 网络最终结果sat or unsat
@@ -90,6 +97,8 @@ class MainVerify:
             except Exception:
                 raise Exception
 
+        end = timer()
+
         try:
             for process in self.splittingProcessQueue:
                 process.terminate()
@@ -98,7 +107,10 @@ class MainVerify:
         except Exception:
             print("something error while attempting to terminate processes")
             raise Exception
-        
+
+        if self.spec.verifyType == "mnist":
+            return (finalSatResult, splitProcessTotalRuntime, solverProcessRuntime, max_jobs_num, end - start)
+
         order: List[Tuple] = []
         while True:
             try:
@@ -145,4 +157,4 @@ class MainVerify:
                 dot.edge(i, str(int(i)*2 + 1))
         dot.render('graph/graph')
         
-        return (finalSatResult, splitProcessTotalRuntime, solverProcessRuntime, max_jobs_num)
+        return (finalSatResult, splitProcessTotalRuntime, solverProcessRuntime, max_jobs_num, end - start)

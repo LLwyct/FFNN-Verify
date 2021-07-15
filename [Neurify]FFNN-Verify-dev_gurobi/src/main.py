@@ -6,6 +6,7 @@ from networkClass import Network
 from gurobipy import GRB, quicksum
 from options import GlobalSetting
 from timeit import default_timer as timer
+
 def getOptions():
     parse = argparse.ArgumentParser()
     parse.add_argument(
@@ -103,6 +104,6 @@ if __name__ == "__main__":
     mnist 用于测试图片鲁棒性类的网络
     acas  用于测试属性安全类的网络
     '''
-    for i in range(1, 101):
-        mainForRun(i, verifyType="mnist")
+    for i in range(1, 10):
+        mainForRun(i, verifyType="acas")
     # mainForOuterScript()

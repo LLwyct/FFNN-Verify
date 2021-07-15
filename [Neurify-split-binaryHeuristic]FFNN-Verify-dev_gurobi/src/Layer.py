@@ -462,6 +462,13 @@ class ReluLayer(Layer):
             raise Exception("Error")
         return fixedNodeNum
 
+    def getNotFixedNodeNum(self):
+        notFixedNodesNum = 0
+        for i in range(self.size):
+            if self.var_bounds_in["ub"][i] > 0 and self.var_bounds_in["lb"][i] < 0:
+                notFixedNodesNum += 1
+        return notFixedNodesNum
+
     def getNotFixedNode(self):
         notFixedNodeList = []
         for i in range(self.size):

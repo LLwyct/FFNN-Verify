@@ -26,4 +26,4 @@ class GlobalSetting:
     SPLIT_THRESHOLD = 0.7
     # splitting_processes_num应该取2^k(k = 0,1,2,3...)
     splitting_processes_num = 1
-    vmodel_verify_processes_num = 4
+    vmodel_verify_processes_num = 1

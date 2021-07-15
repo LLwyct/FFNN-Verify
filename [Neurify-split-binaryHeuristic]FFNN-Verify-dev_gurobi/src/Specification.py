@@ -1,12 +1,17 @@
+from pickle import NONE
 from typing import Dict, Optional, Tuple
 from numpy import ndarray
 from ConstraintFormula import Formulation
 from Split import Split
+from options import GlobalSetting
 from property import getNormaliseInput, acas_properties
+import numpy as np
 import copy
 
 class Specification:
-    def __init__(self, ub: Optional[ndarray] = None, lb: Optional[ndarray] = None):
+    def __init__(self, ub: Optional[ndarray] = None, lb: Optional[ndarray] = None, verifyType = "acas", propertyReadyToVerify = -1):
+        self.verifyType = verifyType
+        self.propertyReadyToVerify = propertyReadyToVerify
         self.inputBounds: Dict[str, Optional[ndarray]] = {
             "ub": None,
             "lb": None
@@ -16,15 +21,20 @@ class Specification:
             "lb": None
         }
         self.outputConstr: Optional[Formulation] = None
+        self.netModel = None
+        self.label = None
 
-    def load(self, propIndex: int, type: str):
+    def load(self, propIndex: int, type: str, image=None, label=None):
         if type == "acas":
             inputBounds = getNormaliseInput(propIndex)
-            self.inputBounds["lb"] = inputBounds[0]
             self.inputBounds["ub"] = inputBounds[1]
+            self.inputBounds["lb"] = inputBounds[0]
             self.outputConstr = acas_properties[propIndex]["outputConstraints"][-1]
         elif type == "mnist":
-            pass
+            radius = GlobalSetting.img_radius
+            self.inputBounds["ub"] = np.minimum(image + radius, 1)
+            self.inputBounds["lb"] = np.maximum(image - radius, 0)
+            self.label = label
 
     def setInputBounds(self, ub:ndarray, lb:ndarray):
         '''

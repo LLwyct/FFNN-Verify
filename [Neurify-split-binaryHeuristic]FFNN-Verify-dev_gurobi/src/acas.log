@@ -160,3 +160,255 @@ splitting time : 3.50
 solver time    : 206.32 69
  avg solver time: 2.99
 
+splitting process num: 2
+vmodel solver process num: 6
+splitting fixed ratio theshold: 0.7
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 2
+vmodel solver process num: 6
+splitting fixed ratio theshold: 0.7
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 2
+vmodel solver process num: 6
+splitting fixed ratio theshold: 0.7
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.01
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.5
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.5
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.5
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.7
+presolver method: 3
+use bounds optimised?: True
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.7
+presolver method: 3
+use bounds optimised?: False
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 1
+splitting fixed ratio theshold: 0.1
+presolver method: 3
+use bounds optimised?: False
+------------------------------------
+splitting process num: 1
+vmodel solver process num: 4
+splitting fixed ratio theshold: 0.1
+presolver method: 3
+use bounds optimised?: False
+------------------------------------

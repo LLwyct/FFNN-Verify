@@ -11,6 +11,7 @@ from timeit import default_timer as timer
 from multiprocessing import Process, Queue
 from ConstraintFormula import Disjunctive
 from EnumMessageType import EnumMessageType
+from random import random
 
 class SplitEndReason:
     SPLIT_SAFETY        = 0
@@ -43,9 +44,13 @@ class SplittingProcess(Process):
         queue = deque()
         queue.append(topSplit)
         processSentJobsNum: int = 0
+        calculnum = 0
         while(len(queue) != 0):
             nowSplit: 'Split' = queue.pop()
-            self.globalInfoQueue.put(("push", nowSplit.id))
+            calculnum += 1
+            if calculnum == 1000:
+                break
+            # self.globalInfoQueue.put(("push", nowSplit.id))
             worth, reason, subSplit = self.isSplitWorth(nowSplit)
             if worth:
                 self.globalInfoQueue.put(("extend", nowSplit.id))
@@ -128,7 +133,21 @@ class SplittingProcess(Process):
 
             return bestSplit, bestIndex
         else:
-            pass
+            randomIdx = int(inputSize * random())
+            new_1_upper = split.up.copy()
+            new_2_upper = split.up.copy()
+            new_1_lower = split.lo.copy()
+            new_2_lower = split.lo.copy()
+            middleValue = (split.up[randomIdx] + split.lo[randomIdx]) / 2
+            new_1_upper[randomIdx] = middleValue
+            new_2_lower[randomIdx] = middleValue
+            id = split.id
+            bestSplit = [
+                Split("{}".format(str(int(id) * 2)), new_1_upper, new_1_lower),
+                Split("{}".format(str(int(id) * 2 + 1)), new_2_upper, new_2_lower)
+            ]
+            return bestSplit, randomIdx
+
 
     def isSplitWorth(self, nowSplit: 'Split') -> Tuple[bool, 'SplitEndReason', any]:
         '''
@@ -149,6 +168,8 @@ class SplittingProcess(Process):
         subsplit, bestSplitIndex = self.getBestSplit(nowSplit, self.lmodel, self.spec.resetFromSplit(nowSplit))
         vmodel0, ratio0 = self.getFixedNodeInfo(self.lmodel, subsplit[0])
         vmodel1, ratio1 = self.getFixedNodeInfo(self.lmodel, subsplit[1])
+        
+        # 如果当前节点的分数，比他分割的两个子问题分数最大值还大，则没必要继续分割
         if nowFixedRatio > max(ratio0, ratio1):
             return (False, SplitEndReason.SPLIT_CANT_BETTER, nowVerifyModel)
         
@@ -158,39 +179,45 @@ class SplittingProcess(Process):
         upper = vmodel.lmodel.lmodels[-1].var_bounds_out["ub"]
         lower = vmodel.lmodel.lmodels[-1].var_bounds_out["lb"]
         ans = True
-        if isinstance(self.spec.outputConstr, Disjunctive):
-            constrs = self.spec.outputConstr.constraints
-            for constr in constrs:
-                relation = constr[2]
-                if constr[0] == "VarVar":
-                    left = int(constr[1])
-                    right = int(constr[3])
-                    if relation == "GT":
-                        if not lower[left] >= upper[right]:
-                            ans = False
-                            break
-                    elif relation == "LT":
-                        if not upper[left] <= lower[right]:
-                            ans = False
-                            break
-                    elif relation == "EQ":
-                        pass
-                    else:
-                        raise Exception("输出约束关系异常")
-                elif constr[0] == "VarValue":
-                    var = int(constr[1])
-                    value = float(constr[3])
-                    if relation == "GT":
-                        if not lower[var] >= value:
-                            ans = False
-                            break
-                    elif relation == "LT":
-                        if not upper[var] <= value:
-                            ans = False
-                            break
-                    elif relation == "EQ":
-                        pass
-                    else:
-                        raise Exception("输出约束关系异常")
-
+        if self.spec.verifyType == "acas":
+            if isinstance(self.spec.outputConstr, Disjunctive):
+                constrs = self.spec.outputConstr.constraints
+                for constr in constrs:
+                    relation = constr[2]
+                    if constr[0] == "VarVar":
+                        left = int(constr[1][1:])
+                        right = int(constr[3][1:])
+                        if relation == "GT":
+                            if not lower[left] - upper[right] >= 0.000001 :
+                                ans = False
+                                break
+                        elif relation == "LT":
+                            if not upper[left] - lower[right] <= -0.000001:
+                                ans = False
+                                break
+                        elif relation == "EQ":
+                            pass
+                        else:
+                            raise Exception("输出约束关系异常")
+                    elif constr[0] == "VarValue":
+                        var = int(constr[1][1:])
+                        value = float(constr[3])
+                        if relation == "GT":
+                            if not lower[var] >= value:
+                                ans = False
+                                break
+                        elif relation == "LT":
+                            if not upper[var] <= value:
+                                ans = False
+                                break
+                        elif relation == "EQ":
+                            pass
+                        else:
+                            raise Exception("输出约束关系异常")
+        elif self.spec.verifyType == "mnist":
+            label = self.spec.label
+            for i in range(len(lower)):
+                if i != label and upper[i] - lower[label] > 0.000001:
+                    ans = False
+                    break
         return ans
