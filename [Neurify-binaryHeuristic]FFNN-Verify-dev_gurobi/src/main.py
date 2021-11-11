@@ -44,9 +44,9 @@ def mainForOuterScript():
 
 def mainForRun(case, verifyType="acas"):
     if verifyType == "acas":
-        start = timer()
-        networkFileName = "acas_2_{}.h5".format(case)
+        networkFileName = "acas_1_{}.h5".format(case)
         networkFilePath = os.path.abspath(os.path.join("../resources/Acas", networkFileName))
+        start = timer()
         network = Network(networkFilePath, fmtType="h5", propertyReadyToVerify=3, verifyType="acas")
         solver = Solver(network)
         res = solver.verify()
@@ -55,6 +55,7 @@ def mainForRun(case, verifyType="acas"):
             with open("result.log", "at") as f:
                 f.write("{} {} {} {:.2f}\n".format(networkFileName, case, res, end - start))
         print(">{} {} {} {:.2f}\n".format(networkFileName, case, res, end - start))
+        return end - start
     elif verifyType == "mnist":
         start = timer()
         if GlobalSetting.preSolveMethod == 4:
@@ -71,6 +72,7 @@ def mainForRun(case, verifyType="acas"):
             with open("result.log", "at") as f:
                 f.write("{} {} {} {:.2f}\n".format(imgPklFileName, case, res, end - start))
         print(">{} {} {} {:.2f}\n".format(imgPklFileName, case, res, end - start))
+        return end - start
     '''
     gurobi已经提供了关于容忍误差，所以此处不需要考虑舍入问题
     '''
@@ -82,6 +84,10 @@ if __name__ == "__main__":
     mnist 用于测试图片鲁棒性类的网络
     acas  用于测试属性安全类的网络
     '''
+    t = []
     for i in range(1, 10):
-        mainForRun(i, verifyType="acas")
+        time = mainForRun(i, verifyType="acas")
+        t.append(time)
+
+    print("average time", sum(t) / len(t))
     # mainForOuterScript()

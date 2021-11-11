@@ -126,7 +126,7 @@ class Layer:
                 else:
                     #lastMatrix = newUpMatrix[i,:][-1]
                     #lastOffset = newUpOffset[i]
-                    # 如果处于位置状态，首先下界的Eq置为0
+                    # 如果处于未知状态，首先下界的Eq置为0
                     newLowMatrix[i,:] = 0
                     newLowOffset[i] = 0
                     # 上界按情况判断

@@ -47,9 +47,9 @@ class SplittingProcess(Process):
         calculnum = 0
         while(len(queue) != 0):
             nowSplit: 'Split' = queue.pop()
-            calculnum += 1
-            if calculnum == 1000:
-                break
+            # calculnum += 1
+            # if calculnum == 1000:
+            #     break
             # self.globalInfoQueue.put(("push", nowSplit.id))
             worth, reason, subSplit = self.isSplitWorth(nowSplit)
             if worth:

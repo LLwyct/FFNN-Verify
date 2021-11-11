@@ -45,11 +45,11 @@ if __name__ == '__main__':
             f.write("splitting fixed ratio theshold: {}\n".format(GlobalSetting.SPLIT_THRESHOLD))
             f.write("presolver method: {}\n".format(GlobalSetting.preSolveMethod))
             f.write("use bounds optimised?: {}\n".format(GlobalSetting.use_bounds_opt))
-            f.write("use_binary_heuristic_method: {}\n".format(GlobalSetting.use_binary_heuristic_method))
+            f.write("use_binary_heuristic_method?: {}\n".format(GlobalSetting.use_binary_heuristic_method))
             f.write("------------------------------------\n")
     times = []
     for i in range(1, 10):
-        t = main_for_run("mnist", i)
+        t = main_for_run("acas", i)
         times.append(t)
     if GlobalSetting.write_to_file:
         with open("result.log", "at") as f:

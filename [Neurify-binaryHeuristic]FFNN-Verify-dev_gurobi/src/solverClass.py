@@ -47,11 +47,12 @@ class Solver:
 
     def checkSATWithbinaryHeuristicMethod(self):
         notFixedNodesNum: int = 0
+        condition: int = 2
         for layer in self.net.lmodel:
             if layer.type == "relu":
                 notFixedNodesNum += layer.getNotFixedNode()
         lo: int = 0
-        hi: int = notFixedNodesNum // 2
+        hi: int = notFixedNodesNum // condition
         if self.net.verifyType == "mnist" and notFixedNodesNum > 30:
             hi = 30
         if GlobalSetting.DEBUG_MODE:
@@ -82,10 +83,11 @@ class Solver:
                     return False
                 if hi == 0:
                     return False
-                hi = int(hi // 2)
+                hi = int(hi // condition)
                 if self.net.verifyType == "mnist":
                     # 如果是mnist数据集，初始的notFixedNodesNum会比较大，并且结果随剩余未固定节点减少变化不明显，因此要加速
                     hi = int(hi / 1.5)
+                condition = int(condition * 1.5)
             else:
                 # 没有解，说明是找不到反例因此是sat的，在使用了松弛后依然是sat则原本必定是sat的
                 return True
