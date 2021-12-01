@@ -6,6 +6,8 @@ from networkClass import Network
 from gurobipy import GRB, quicksum
 from options import GlobalSetting
 from timeit import default_timer as timer
+
+
 def getOptions():
     parse = argparse.ArgumentParser()
     parse.add_argument(
@@ -42,25 +44,25 @@ def mainForOuterScript():
     solver.solve()
     print(networkFilePath)
 
-def mainForRun(case, verifyType="acas"):
+def mainForRun(case1, case2, verifyType="acas"):
     if verifyType == "acas":
-        networkFileName = "acas_1_{}.h5".format(case)
+        networkFileName = "acas_{}_{}.h5".format(case1, case2)
         networkFilePath = os.path.abspath(os.path.join("../resources/Acas", networkFileName))
         start = timer()
-        network = Network(networkFilePath, fmtType="h5", propertyReadyToVerify=3, verifyType="acas")
+        network = Network(networkFilePath, fmtType="h5", propertyReadyToVerify=5, verifyType="acas")
         solver = Solver(network)
         res = solver.verify()
         end = timer()
         if GlobalSetting.write_to_file:
             with open("result.log", "at") as f:
-                f.write("{} {} {} {:.2f}\n".format(networkFileName, case, res, end - start))
-        print(">{} {} {} {:.2f}\n".format(networkFileName, case, res, end - start))
+                f.write("{} {} {:.2f}\n".format(networkFileName, res, end - start))
+        print(">{} {} {:.2f}\n".format(networkFileName, res, end - start))
         return end - start
     elif verifyType == "mnist":
         start = timer()
         if GlobalSetting.preSolveMethod == 4:
             GlobalSetting.preSolveMethod = 3
-        imgPklFileName = "im{}.pkl".format(case)
+        imgPklFileName = "im{}.pkl".format(case1)
         networkFileName = "mnist-net.h5"
         imgPklFilePath = os.path.abspath(os.path.join("../resources/Mnist/evaluation_images", imgPklFileName))
         networkFilePath = os.path.abspath(os.path.join("../resources/Mnist", networkFileName))
@@ -70,8 +72,8 @@ def mainForRun(case, verifyType="acas"):
         end = timer()
         if GlobalSetting.write_to_file:
             with open("result.log", "at") as f:
-                f.write("{} {} {} {:.2f}\n".format(imgPklFileName, case, res, end - start))
-        print(">{} {} {} {:.2f}\n".format(imgPklFileName, case, res, end - start))
+                f.write("{} {} {:.2f}\n".format(imgPklFileName, res, end - start))
+        print(">{} {} {:.2f}\n".format(imgPklFileName, res, end - start))
         return end - start
     '''
     gurobi已经提供了关于容忍误差，所以此处不需要考虑舍入问题
@@ -84,10 +86,17 @@ if __name__ == "__main__":
     mnist 用于测试图片鲁棒性类的网络
     acas  用于测试属性安全类的网络
     '''
+    with open("result.log", "at") as f:
+        f.write("------------------------------------\n")
+        f.write("presolver method: {}\n".format(GlobalSetting.preSolveMethod))
+        f.write("use bounds optimised?: {}\n".format(GlobalSetting.use_bounds_opt))
+        f.write("use_binary_heuristic_method?: {}\n".format(GlobalSetting.use_binary_heuristic_method))
+        f.write("------------------------------------\n")
     t = []
-    for i in range(1, 10):
-        time = mainForRun(i, verifyType="acas")
-        t.append(time)
+    for i in range(1, 2):
+        for j in range(1, 2):
+            time = mainForRun(i, j, verifyType="acas")
+            t.append(time)
 
     print("average time", sum(t) / len(t))
     # mainForOuterScript()

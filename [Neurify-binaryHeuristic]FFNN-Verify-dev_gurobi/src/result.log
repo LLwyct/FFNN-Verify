@@ -135,21 +135,6 @@ acas_1_7.h5 7 unsat 0.12
 acas_1_8.h5 8 unsat 0.05
 acas_1_9.h5 9 unsat 0.04
 average time 9.108970166666664
-===================================
-    constrMethod = 0
-    preSolveMethod = 3
-    use_bounds_opt = True
-    use_binary_heuristic_method = 0
-acas_2_1.h5 1 sat 0.55
-acas_2_2.h5 2 sat 0.42
-acas_2_3.h5 3 sat 2.90
-acas_2_4.h5 4 sat 0.03
-acas_2_5.h5 5 sat 0.05
-acas_2_6.h5 6 sat 0.03
-acas_2_7.h5 7 sat 0.05
-acas_2_8.h5 8 sat 0.03
-acas_2_9.h5 9 sat 0.03
-average time 0.4566197444444449
 ==================================
 constrMethod = 0
 preSolveMethod = 3
@@ -169,38 +154,9 @@ average time 0.8460662000000002
 constrMethod = 0
 preSolveMethod = 3
 use_bounds_opt = True
+DEBUG_MODE = False
 use_binary_heuristic_method = 1
-acas_2_1.h5 1 sat 0.21
-acas_2_2.h5 2 sat 0.26
-acas_2_3.h5 3 sat 0.68
-acas_2_4.h5 4 sat 0.03
-acas_2_5.h5 5 sat 0.07
-acas_2_6.h5 6 sat 0.03
-acas_2_7.h5 7 sat 0.04
-acas_2_8.h5 8 sat 0.03
-acas_2_9.h5 9 sat 0.03
-==============================
-acas_1_1.h5 1 sat 5.21
-acas_1_2.h5 2 sat 0.29
-acas_1_3.h5 3 sat 1.81
-acas_1_4.h5 4 sat 0.05
-acas_1_5.h5 5 sat 0.04
-acas_1_6.h5 6 sat 0.03
-acas_1_7.h5 7 unsat 0.11
-acas_1_8.h5 8 unsat 0.13
-acas_1_9.h5 9 unsat 0.11
-===============================
-constrMethod = 0
-    # 0 MIL with bigM
-    # 1 MILP with ia  区间传播
-    # 2 MILP with sia 符号区间传播
-    # 3 MILP with slr 符号线性松弛
-    # 4 sia and slr
-    preSolveMethod = 3
-    use_bounds_opt = True
-    DEBUG_MODE = False
-    use_binary_heuristic_method = 1
-    write_to_file = True
+write_to_file = True
 acas_1_1.h5 1 sat 7.79
 acas_1_2.h5 2 sat 4.21
 acas_1_3.h5 3 sat 6.08
@@ -210,3 +166,88 @@ acas_1_6.h5 6 sat 2.67
 acas_1_7.h5 7 unsat 2.93
 acas_1_8.h5 8 unsat 2.58
 acas_1_9.h5 9 unsat 2.33
+==================================
+constrMethod = 0
+preSolveMethod = 3
+use_bounds_opt = True
+DEBUG_MODE = False
+use_binary_heuristic_method = 1
+write_to_file = True
+acas_1_1.h5 1 sat 8.41
+acas_1_2.h5 2 sat 4.01
+acas_1_3.h5 3 sat 6.05
+acas_1_4.h5 4 sat 3.65
+acas_1_5.h5 5 sat 3.25
+acas_1_6.h5 6 sat 2.71
+acas_1_7.h5 7 unsat 2.90
+acas_1_8.h5 8 unsat 2.63
+acas_1_9.h5 9 unsat 2.38
+==================================
+constrMethod = 0
+preSolveMethod = 3
+use_bounds_opt = True
+DEBUG_MODE = False
+use_binary_heuristic_method = 1
+write_to_file = Trueacas_1_1.h5 1 sat 8.60
+acas_1_2.h5 2 sat 4.16
+acas_1_3.h5 3 sat 5.92
+acas_1_4.h5 4 sat 3.60
+acas_1_5.h5 5 sat 3.25
+acas_1_6.h5 6 sat 2.63
+acas_1_7.h5 7 unsat 2.87
+acas_1_8.h5 8 unsat 2.58
+acas_1_9.h5 9 unsat 2.57
+acas_1_1.h5 1 sat 7.51
+acas_1_2.h5 2 sat 2.75
+acas_1_3.h5 3 sat 4.61
+acas_1_4.h5 4 sat 2.54
+acas_1_5.h5 5 sat 2.20
+acas_1_6.h5 6 sat 1.76
+acas_1_7.h5 7 unsat 2.02
+acas_1_8.h5 8 unsat 1.82
+acas_1_9.h5 9 unsat 1.61
+acas_1_1.h5 1 sat 7.45
+acas_1_2.h5 2 sat 2.74
+acas_1_3.h5 3 sat 4.45
+acas_1_4.h5 4 sat 2.44
+acas_1_5.h5 5 sat 2.26
+acas_1_6.h5 6 sat 1.78
+acas_1_7.h5 7 unsat 2.00
+acas_1_8.h5 8 unsat 1.75
+acas_1_9.h5 9 unsat 1.58
+acas_2_1.h5 1 sat 2.75
+acas_2_2.h5 2 sat 1.94
+acas_2_3.h5 3 sat 2.58
+acas_2_4.h5 4 sat 1.39
+acas_2_5.h5 5 sat 1.77
+acas_2_6.h5 6 sat 1.95
+acas_2_7.h5 7 sat 1.81
+acas_2_8.h5 8 sat 1.74
+acas_2_9.h5 9 sat 1.37
+acas_3_1.h5 1 sat 1.69
+acas_3_2.h5 2 sat 6.35
+acas_3_3.h5 3 sat 1.96
+acas_3_4.h5 4 sat 2.30
+acas_3_5.h5 5 sat 1.93
+acas_3_6.h5 6 sat 2.52
+acas_3_7.h5 7 sat 1.26
+acas_3_8.h5 8 sat 1.84
+acas_3_9.h5 9 sat 1.47
+acas_4_1.h5 1 sat 1.84
+acas_4_2.h5 2 sat 2.30
+acas_4_3.h5 3 sat 2.66
+acas_4_4.h5 4 sat 1.51
+acas_4_5.h5 5 sat 1.69
+acas_4_6.h5 6 sat 2.81
+acas_4_7.h5 7 sat 1.85
+acas_4_8.h5 8 sat 1.87
+acas_4_9.h5 9 sat 2.12
+acas_5_1.h5 1 sat 2.55
+acas_5_2.h5 2 sat 1.84
+acas_5_3.h5 3 sat 2.00
+acas_5_4.h5 4 sat 1.66
+acas_5_5.h5 5 sat 1.94
+acas_5_6.h5 6 sat 2.10
+acas_5_7.h5 7 sat 1.53
+acas_5_8.h5 8 sat 2.01
+acas_5_9.h5 9 sat 1.51

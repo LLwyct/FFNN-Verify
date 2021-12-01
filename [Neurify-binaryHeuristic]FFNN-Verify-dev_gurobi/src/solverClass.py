@@ -52,12 +52,13 @@ class Solver:
             if layer.type == "relu":
                 notFixedNodesNum += layer.getNotFixedNode()
         lo: int = 0
-        hi: int = notFixedNodesNum // condition
+        hi: int = notFixedNodesNum // 2
         if self.net.verifyType == "mnist" and notFixedNodesNum > 30:
             hi = 30
         if GlobalSetting.DEBUG_MODE:
             print('sum of not fixed node:', notFixedNodesNum)
         while lo <= hi:
+            print("fuck")
             start = timer()
             # init 到初始状态
             self.m.reset()
@@ -83,11 +84,11 @@ class Solver:
                     return False
                 if hi == 0:
                     return False
-                hi = int(hi // condition)
+                hi = int(hi // 2)
                 if self.net.verifyType == "mnist":
                     # 如果是mnist数据集，初始的notFixedNodesNum会比较大，并且结果随剩余未固定节点减少变化不明显，因此要加速
                     hi = int(hi / 1.5)
-                condition = int(condition * 1.5)
+                # condition = int(condition * 1)
             else:
                 # 没有解，说明是找不到反例因此是sat的，在使用了松弛后依然是sat则原本必定是sat的
                 return True
@@ -225,7 +226,7 @@ class Solver:
                     elif constr[0] == "VarValue":
                         var = m.getVarByName(constr[1])
                         relation = constr[2]
-                        value = m.getVarByName(constr[3])
+                        value = constr[3]
                         if relation == "GT":
                             m.addConstr(var <= value)
                         elif relation == "LT":
@@ -253,7 +254,7 @@ class Solver:
                     elif constr[0] == "VarValue":
                         var = m.getVarByName(constr[1])
                         relation = constr[2]
-                        value = int(constr[3])
+                        value = constr[3]
                         if relation == "GT":
                             m.addConstr((additionalConstrBinVar[i] == 1) >> (var <= value))
                         elif relation == "LT":
@@ -389,7 +390,7 @@ class Solver:
         ans: bool = False
         outputVar = self.net.networkModel.predict(np.array([inputVar]))[0]
         if self.net.verifyType == "acas":
-            realOutputVar = acas_denormalise_output(np.array(outputVar))
+            realOutputVar = np.array(outputVar)
             constraints = property.acas_properties[self.net.propertyIndexReadyToVerify]["outputConstraints"][-1]
             if isinstance(constraints, Disjunctive):
                 # 这里是或约束，且是原始的正例或约束，因此只要一条子约束满足，则不是反例
@@ -412,9 +413,9 @@ class Solver:
                         else:
                             raise Exception("输出约束关系异常")
                     elif constr[0] == "VarValue":
-                        varIdx = constr[1][1:]
+                        varIdx = int(constr[1][1:])
                         relation = constr[2]
-                        value = float(constr[3])
+                        value = constr[3]
                         if relation == "GT":
                             if realOutputVar[varIdx] >= value:
                                 ans = True
@@ -426,7 +427,37 @@ class Solver:
                         else:
                             raise Exception("输出约束关系异常")
             elif isinstance(constraints, Conjunctive):
-                pass
+                ans = True
+                for constr in constraints.constraints:
+                    # 这里后续需要优化，constr[0]是什么？ 不利于阅读，应该改成字典类型constr[‘type’]
+                    if constr[0] == "VarVar":
+                        var1Idx = int(constr[1][1:])
+                        relation = constr[2]
+                        var2Idx = int(constr[3][1:])
+                        if relation == "GT":
+                            if realOutputVar[var1Idx] - realOutputVar[var2Idx] < 0.000001:
+                                return True
+                        elif relation == "LT":
+                            if realOutputVar[var1Idx] > realOutputVar[var2Idx]:
+                                return True
+                        elif relation == "EQ":
+                            pass
+                        else:
+                            raise Exception("输出约束关系异常")
+                    elif constr[0] == "VarValue":
+                        varIdx = int(constr[1][1:])
+                        relation = constr[2]
+                        value = constr[3]
+                        if relation == "GT":
+                            if realOutputVar[varIdx] <= value:
+                                return True
+                        elif relation == "LT":
+                            if realOutputVar[varIdx] >= value:
+                                return True
+                        elif relation == "EQ":
+                            pass
+                        else:
+                            raise Exception("输出约束关系异常")
         elif self.net.verifyType == "mnist":
             # 在mnist数据集里，这里是且约束，只要有一条反子约束不满足则是真实反例
             label = self.net.label
