@@ -11,7 +11,6 @@ from timeit import default_timer as timer
 from multiprocessing import Process, Queue
 from ConstraintFormula import Disjunctive
 from EnumMessageType import EnumMessageType
-from random import random
 
 class SplitEndReason:
     SPLIT_SAFETY        = 0
@@ -44,13 +43,10 @@ class SplittingProcess(Process):
         queue = deque()
         queue.append(topSplit)
         processSentJobsNum: int = 0
-        calculnum = 0
         while(len(queue) != 0):
             nowSplit: 'Split' = queue.pop()
-            # calculnum += 1
-            # if calculnum == 1000:
-            #     break
-            # self.globalInfoQueue.put(("push", nowSplit.id))
+            self.globalInfoQueue.put(("push", nowSplit.id))
+            # 这里的subsplit就已经有做好区间传播的lmodel模型了
             worth, reason, subSplit = self.isSplitWorth(nowSplit)
             if worth:
                 self.globalInfoQueue.put(("extend", nowSplit.id))
@@ -96,10 +92,10 @@ class SplittingProcess(Process):
     def getBestSplit(self, split: 'Split', lmodel, spec) -> Tuple[List['Split'], int]:
         # 如果输入维度小于某个值才执行逐维度测试
         inputSize = len(split.up)
+        bestIndex = -1
+        bestAverageRatio = 0
+        bestSplit = None
         if inputSize < 15:
-            bestIndex = -1
-            bestAverageRatio = 0
-            bestSplit = None
             for i in range(inputSize):
                 new_1_upper = split.up.copy()
                 new_2_upper = split.up.copy()
@@ -130,32 +126,35 @@ class SplittingProcess(Process):
                         Split("{}".format(str(int(id)*2)), new_1_upper, new_1_lower),
                         Split("{}".format(str(int(id)*2 + 1)), new_2_upper, new_2_lower)
                     ]
-
             return bestSplit, bestIndex
         else:
-            randomIdx = int(inputSize * random())
+            max_interval = 0
+            max_interval_index = 0
+            for i in range(len(split.up)):
+                if split.up[i] - split.lo[i] > max_interval and split.up[i] != 1 and split.up[i] != 0:
+                    max_interval_index = i
+                    max_interval = split.up[i] - split.lo[i]
             new_1_upper = split.up.copy()
             new_2_upper = split.up.copy()
             new_1_lower = split.lo.copy()
             new_2_lower = split.lo.copy()
-            middleValue = (split.up[randomIdx] + split.lo[randomIdx]) / 2
-            new_1_upper[randomIdx] = middleValue
-            new_2_lower[randomIdx] = middleValue
+            middleValue = (split.up[max_interval_index] + split.lo[max_interval_index]) / 2
+            new_1_upper[max_interval_index] = middleValue
+            new_2_lower[max_interval_index] = middleValue
             id = split.id
-            bestSplit = [
-                Split("{}".format(str(int(id) * 2)), new_1_upper, new_1_lower),
-                Split("{}".format(str(int(id) * 2 + 1)), new_2_upper, new_2_lower)
-            ]
-            return bestSplit, randomIdx
+            return [
+                    Split("{}".format(str(int(id) * 2)), new_1_upper, new_1_lower),
+                    Split("{}".format(str(int(id) * 2 + 1)), new_2_upper, new_2_lower)
+            ], max_interval_index
 
-
-    def isSplitWorth(self, nowSplit: 'Split') -> Tuple[bool, 'SplitEndReason', any]:
+    def isSplitWorth(self, nowSplit: 'Split') -> Tuple[bool, int, any]:
         '''
         False SplitEndReason.SPLIT_SAFETY           Split.id: str\n
         False SplitEndReason.SPLIT_SAT_THRESHOLD    VerifyModel\n
         False SplitEndReason.SPLIT_CANT_BETTER      VerifyModel\n
         True  SplitEndReason.CONTINUE               subsplit: List[Split]
         '''
+        # 获得当前split的已固定节点ratio
         nowVerifyModel, nowFixedRatio = self.getFixedNodeInfo(self.lmodel, nowSplit)
         # 如果该split是安全的，则该split及其子节点都是安全的
         if self.isSatisfySpec(nowVerifyModel):
@@ -168,9 +167,10 @@ class SplittingProcess(Process):
         subsplit, bestSplitIndex = self.getBestSplit(nowSplit, self.lmodel, self.spec.resetFromSplit(nowSplit))
         vmodel0, ratio0 = self.getFixedNodeInfo(self.lmodel, subsplit[0])
         vmodel1, ratio1 = self.getFixedNodeInfo(self.lmodel, subsplit[1])
-        
+        # print(nowFixedRatio, ratio1, ratio0)
         # 如果当前节点的分数，比他分割的两个子问题分数最大值还大，则没必要继续分割
-        if nowFixedRatio > max(ratio0, ratio1):
+        # nowFixedRatio > max(ratio0, ratio1) 如果acas的性能有影响有可能是因为这句话被改了
+        if nowFixedRatio >= max(ratio0, ratio1):
             return (False, SplitEndReason.SPLIT_CANT_BETTER, nowVerifyModel)
         
         return (True, SplitEndReason.CONTINUE, subsplit)
@@ -179,7 +179,14 @@ class SplittingProcess(Process):
         upper = vmodel.lmodel.lmodels[-1].var_bounds_out["ub"]
         lower = vmodel.lmodel.lmodels[-1].var_bounds_out["lb"]
         ans = True
-        if self.spec.verifyType == "acas":
+        if self.spec.verifyType == "mnist":
+            label = self.spec.label
+            for i in range(0, 10):
+                if i == label:
+                    continue
+                if lower[label] < upper[i]:
+                    return False
+        elif self.spec.verifyType == "acas":
             if isinstance(self.spec.outputConstr, Disjunctive):
                 constrs = self.spec.outputConstr.constraints
                 for constr in constrs:
@@ -188,11 +195,11 @@ class SplittingProcess(Process):
                         left = int(constr[1][1:])
                         right = int(constr[3][1:])
                         if relation == "GT":
-                            if not lower[left] - upper[right] >= 0.000001 :
+                            if not lower[left] >= upper[right]:
                                 ans = False
                                 break
                         elif relation == "LT":
-                            if not upper[left] - lower[right] <= -0.000001:
+                            if not upper[left] <= lower[right]:
                                 ans = False
                                 break
                         elif relation == "EQ":
@@ -214,10 +221,4 @@ class SplittingProcess(Process):
                             pass
                         else:
                             raise Exception("输出约束关系异常")
-        elif self.spec.verifyType == "mnist":
-            label = self.spec.label
-            for i in range(len(lower)):
-                if i != label and upper[i] - lower[label] > 0.000001:
-                    ans = False
-                    break
         return ans

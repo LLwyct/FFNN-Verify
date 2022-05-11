@@ -1,56 +1,81 @@
 import os
 import argparse
 from timeit import default_timer as timer
+import time
 from Network import Network
 from MainVerify import MainVerify
 from options import GlobalSetting
 
-def main_for_run(verify_type, case):
+def main_for_run(case1, case2, p, verify_type="acas"):
 
     if verify_type == "acas":
         start = timer()
-        networkFileName = "acas_1_{}.h5".format(case)
+        networkFileName = "acas_{}_{}.h5".format(case1, case2)
         networkFilePath = os.path.abspath(os.path.join("../resources/Acas", networkFileName))
-        network: 'Network' = Network(networkFilePath, fmtType="h5", propertyReadyToVerify=3, verifyType="acas")
+        network: 'Network' = Network(networkFilePath, fmtType="h5", propertyReadyToVerify=p, verifyType="acas")
         spec = network.getInitialSpec()
         mainVerifier = MainVerify(network, spec)
-        isSat, splittingTime, solverTime, max_jobs_num, truthTime =  mainVerifier.verify()
+        isSat, splittingTime, solverTime, max_jobs_num, truthTime, isTimeout =  mainVerifier.verify()
         end = timer()
         if GlobalSetting.write_to_file:
             with open("result.log", "at") as f:
-                f.write("{} {} {} {:.2f}\n\n".format(networkFileName, case, isSat, truthTime))
-        print(">{} {} {} {:.2f}\n\n".format(networkFileName, case, isSat, truthTime))
+                f.write("{} {} {:.2f}\n".format(networkFileName, "Timeout" if isTimeout else isSat, truthTime))
+        print(">{} {} {:.2f}\n\n".format(networkFileName, "Timeout" if isTimeout else isSat, truthTime))
         return truthTime
     if verify_type == "mnist":
         start = timer()
-        imgPklFileName = "im{}.pkl".format(case)
+        imgPklFileName = "im{}.pkl".format(case2)
         networkFileName = "mnist-net.h5"
         imgPklFilePath = os.path.abspath(os.path.join("../resources/Mnist/evaluation_images", imgPklFileName))
         networkFilePath = os.path.abspath(os.path.join("../resources/Mnist", networkFileName))
         network = Network(networkFilePath, fmtType="h5", imgPklFilePath=imgPklFilePath, verifyType="mnist")
         spec = network.getInitialSpec()
         mainVerifier = MainVerify(network, spec)
-        isSat, splittingTime, solverTime, max_jobs_num, truthTime =  mainVerifier.verify()
+        isSat, splittingTime, solverTime, max_jobs_num, truthTime, isTimeout =  mainVerifier.verify()
         end = timer()
         if GlobalSetting.write_to_file:
             with open("result.log", "at") as f:
-                f.write("{} {} {} {:.2f}".format(imgPklFileName, case, isSat, truthTime))
-        print(">{} {} {} {:.2f}\n\n".format(imgPklFileName, case, isSat, truthTime))
+                f.write("{} {} {} {:.2f}\n".format(imgPklFileName, case2, isSat, truthTime))
+        print(">{} {} {} {:.2f}\n\n".format(imgPklFileName, case2, isSat, truthTime))
 
 if __name__ == '__main__':
     if GlobalSetting.write_to_file:
         with open("result.log", "at") as f:
+            f.write("------------------------------------\n")
+            f.write("{} in 9900k\n".format(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
             f.write("splitting process num: {}\n".format(GlobalSetting.splitting_processes_num))
             f.write("vmodel solver process num: {}\n".format(GlobalSetting.vmodel_verify_processes_num))
             f.write("splitting fixed ratio theshold: {}\n".format(GlobalSetting.SPLIT_THRESHOLD))
             f.write("presolver method: {}\n".format(GlobalSetting.preSolveMethod))
             f.write("use bounds optimised?: {}\n".format(GlobalSetting.use_bounds_opt))
-            f.write("use_binary_heuristic_method?: {}\n".format(GlobalSetting.use_binary_heuristic_method))
+            f.write("use_binary_heuristic_method: {}\n".format(GlobalSetting.use_binary_heuristic_method))
             f.write("------------------------------------\n")
-    times = []
-    for i in range(1, 10):
-        t = main_for_run("acas", i)
-        times.append(t)
+    # times = []
+    # # for p in range(3, 4):
+    # #     if GlobalSetting.write_to_file:
+    # #         with open("result.log", "at") as f:
+    # #             f.write("check property: {}\n".format(p))
+    # #     for i in range(3, 4):
+    # #         for j in range(1, 10):
+    # #             time = main_for_run(i, j, p, "acas")
+    # #             times.append(time)
+    # # for i in range(9, 10):
+    # #     time = main_for_run(1, i, 1, "mnist")
+    # select = [
+    #     [1, 1],
+    #     [1, 2],
+    #     [2, 2],
+    #     [1, 4],
+    #     [2, 3],
+    #     [2, 4],
+    #     [1, 7],
+    #     [1, 8],
+    #     [3, 1],
+    #     [2, 1],
+    # ]
+    # for item in select:
+    #     main_for_run(item[0], item[1], 3, "acas")
+    main_for_run(1, 1, 3, "mnist")
     if GlobalSetting.write_to_file:
         with open("result.log", "at") as f:
             f.write("average time: {:.2f}\n\n".format(sum(times) / len(times)))

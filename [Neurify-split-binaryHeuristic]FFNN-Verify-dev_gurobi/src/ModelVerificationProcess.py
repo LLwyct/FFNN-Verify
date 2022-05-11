@@ -2,6 +2,7 @@ from VerifyModel import VerifyModel
 from timeit import default_timer as timer
 from multiprocessing import Process, Queue
 from EnumMessageType import EnumMessageType
+from options import GlobalSetting
 
 class ModelVerificationProcess(Process):
     def __init__(self, id: int, globalJobQueue: 'Queue', globalMsgQueue: 'Queue', netModel=None) -> None:

@@ -12,6 +12,7 @@ import gurobipy as gp
 from gurobipy import GRB, quicksum
 from property import acas_denormalise_output, acas_properties
 from keras.models import load_model
+from timeit import default_timer as timer
 
 class VerifyModel:
     def __init__(self, id: str, lmodel: 'LayerModel', spec: 'Specification'):
@@ -31,38 +32,80 @@ class VerifyModel:
         当sat满足约束的取反时返回False
         当unsat不满足约束的取反时返回True
         '''
+        load_start = timer()
         self.networkModel = load_model(networkModel, compile=False)
+        load_end = timer()
+        print("load time:", load_end - load_start)
         self.gmodel = gp.Model()
         self.gmodel.Params.OutputFlag = 0
         self.indexToVar = []
         self.indexToReluvar: List[List] = []
+        if GlobalSetting.DEBUG_MODE == True:
+            notFixedNodesNum = 0
+            for layer in self.lmodel.lmodels:
+                if layer.type == "relu":
+                    notFixedNodesNum += layer.getNotFixedNodeNum()
+            print("id: {}, notFixedNodesNum before potimise: {}".format(self.id, notFixedNodesNum))
+        triangleTime = timer()
+        for layer in self.lmodel.lmodels:
+            length = layer.size
+            average = 0
+            for i in range(length):
+                average += layer.var_bounds_in["ub"][i] - layer.var_bounds_in["lb"][i]
+            if layer.size > 10:
+                print("fixed node nums", layer.getFixedNodeNum())
+                average = average / length
+                print(average)
+        return True
+        pass
         while True and GlobalSetting.use_bounds_opt is True:
             # 属于预处理的步骤，使用三角近似来优化边界，要在initAllBounds之后执行
             self.indexToVar = []
             opt_num = self.optimize_bounds()
-            #print("optmise bounds number: ", opt_num)
-            if opt_num == 0:
+            if GlobalSetting.DEBUG_MODE == True:
+                notFixedNodesNum = 0
+                for layer in self.lmodel.lmodels:
+                    if layer.type == "relu":
+                        notFixedNodesNum += layer.getNotFixedNodeNum()
+                print("id: {}, notFixedNodesNum in potimise: {}".format(self.id, notFixedNodesNum))
+            if opt_num == 0 or self.spec.verifyType == "mnist":
                 break
-            break
-        if GlobalSetting.use_binary_heuristic_method == 0:
+        # for layer in self.lmodel.lmodels:
+        #     length = layer.size
+        #     average = 0
+        #     for i in range(length):
+        #         average += layer.var_bounds_in["ub"][i] - layer.var_bounds_in["lb"][i]
+        #     if layer.size > 10:
+        #         print("fixed node nums", layer.getFixedNodeNum())
+        #     average = average / length
+        #     print(average)
+        if GlobalSetting.DEBUG_MODE == True:
+            notFixedNodesNum = 0
+            for layer in self.lmodel.lmodels:
+                if layer.type == "relu":
+                    notFixedNodesNum += layer.getNotFixedNodeNum()
+            print("id: {}, notFixedNodesNum after potimise: {}".format(self.id, notFixedNodesNum))
+        if GlobalSetting.use_binary_heuristic_method == False:
             # 先添加Gurobi Model的全部变量，CONTINUES变量和BINARY变量
             self.addGurobiVarFromLayerModel(self.gmodel)
             # 添加层与层之间变量的约束
             self.addGurobiConstrsBetweenLayers(self.gmodel)
             # 添加输出层人为规定的安全约束
             self.addManualConstraints(self.gmodel)
+            self.gmodel.Params.outputFlag = 0
+
             self.gmodel.optimize()
+
             if self.gmodel.status == GRB.OPTIMAL:
                 # print("launch slover", self.id, False)
                 return False
             else:
                 # print("launch slover", self.id, True)
                 return True
-        elif GlobalSetting.use_binary_heuristic_method == 1:
+        elif GlobalSetting.use_binary_heuristic_method == True:
             self.gmodel.Params.outputFlag = 0
             res = self.checkSATWithbinaryHeuristicMethod(self.gmodel)
             return res
-
 
     def checkSATWithbinaryHeuristicMethod(self, m) -> bool:
         notFixedNodesNum: int = 0
@@ -70,11 +113,13 @@ class VerifyModel:
             if layer.type == "relu":
                 notFixedNodesNum += layer.getNotFixedNodeNum()
         lo: int = 0
-        hi: int = notFixedNodesNum // 2
-        if self.spec.verifyType == "mnist" and notFixedNodesNum > 30:
-            hi = 30
-        #print("restNum", notFixedNodesNum)
-        hi = 40
+        hi: int = notFixedNodesNum
+        # if self.spec.verifyType == "mnist" and notFixedNodesNum > 30:
+        #     hi = 30
+        if GlobalSetting.DEBUG_MODE:
+            print('id:', self.id)
+            print('sum of not fixed node:', notFixedNodesNum)
+        conditions = 1
         while lo <= hi:
             # init 到初始状态
             self.gmodel.reset()
@@ -88,24 +133,30 @@ class VerifyModel:
             self.addGurobiConstrsBetweenLayers(self.gmodel, hi)
             self.addManualConstraints(self.gmodel)
             self.gmodel.optimize()
-            #print("restHi", hi)
+
             if self.gmodel.status == GRB.OPTIMAL:
+                if GlobalSetting.DEBUG_MODE:
+                    print("self.id {} is Unsafe, now by hi = {}".format(self.id, hi))
                 inputVar = [m.getVarByName("X{}".format(i)) for i in range(self.lmodel.inputLayer.size)]
                 inputVar = [Var.X for Var in inputVar]
                 res = self.isTrulyConterExample(inputVar)
                 if res:
+                    if GlobalSetting.DEBUG_MODE:
+                        print("self.id {} is Truly Unsafe, now by hi = {}".format(self.id, hi))
                     return False
                 if hi == 0:
                     return False
                 hi = hi // 2
                 if self.spec.verifyType == "mnist":
                     # 如果是mnist数据集，初始的notFixedNodesNum会比较大，并且结果随剩余未固定节点减少变化不明显，因此要加速
-                    hi = int(hi / 1.5)
+                    hi = int(hi / conditions)
+                    conditions = conditions * 1.5
             else:
                 # print("binary search end, sat")
                 # 没有解，说明是找不到反例因此是sat的，在使用了松弛后依然是sat则原本必定是sat的
+                if GlobalSetting.DEBUG_MODE:
+                    print("self.id {} is safe, end by hi = {}".format(self.id, hi))
                 return True
-
 
     def initAllBounds(self):
         # 初始化/预处理隐藏层及输出层的边界
@@ -364,7 +415,7 @@ class VerifyModel:
                     elif constr[0] == "VarValue":
                         var = m.getVarByName(constr[1])
                         relation = constr[2]
-                        value = m.getVarByName(constr[3])
+                        value = constr[3]
                         if relation == "GT":
                             m.addConstr(var <= value)
                         elif relation == "LT":
@@ -392,7 +443,7 @@ class VerifyModel:
                     elif constr[0] == "VarValue":
                         var = m.getVarByName(constr[1])
                         relation = constr[2]
-                        value = int(constr[3])
+                        value = constr[3]
                         if relation == "GT":
                             m.addConstr((additionalConstrBinVar[i] == 1) >> (var <= value))
                         elif relation == "LT":
@@ -510,7 +561,7 @@ class VerifyModel:
         ans: bool = False
         outputVar = self.networkModel(np.array([inputVar]))[0]
         if self.spec.verifyType == "acas":
-            realOutputVar = acas_denormalise_output(np.array(outputVar))
+            realOutputVar = np.array(outputVar)
             constraints = acas_properties[self.spec.propertyReadyToVerify]["outputConstraints"][-1]
             if isinstance(constraints, Disjunctive):
                 # 这里是或约束，且是原始的正例或约束，因此只要一条子约束满足，则不是反例
@@ -521,11 +572,13 @@ class VerifyModel:
                         relation = constr[2]
                         var2Idx = int(constr[3][1:])
                         if relation == "GT":
-                            if realOutputVar[var1Idx] - realOutputVar[var2Idx] > 0.000001:
+                            if realOutputVar[var1Idx] > realOutputVar[var2Idx]:
+                                # if realOutputVar[var1Idx] - realOutputVar[var2Idx] > 0.000001:
                                 ans = True
                                 break
                         elif relation == "LT":
-                            if realOutputVar[var1Idx] - realOutputVar[var2Idx] < -0.000001:
+                            if realOutputVar[var1Idx] < realOutputVar[var2Idx]:
+                                # if realOutputVar[var1Idx] - realOutputVar[var2Idx] < -0.000001:
                                 ans = True
                                 break
                         elif relation == "EQ":
@@ -533,26 +586,56 @@ class VerifyModel:
                         else:
                             raise Exception("输出约束关系异常")
                     elif constr[0] == "VarValue":
-                        varIdx = constr[1][1:]
+                        varIdx = int(constr[1][1:])
                         relation = constr[2]
                         value = float(constr[3])
                         if relation == "GT":
                             if realOutputVar[varIdx] - value >= 0.000001:
                                 ans = True
                         elif relation == "LT":
-                            if realOutputVar[varIdx] - value <= -0.000001:
+                            if realOutputVar[varIdx] - value <= 0.000001:
                                 ans = True
                         elif relation == "EQ":
                             pass
                         else:
                             raise Exception("输出约束关系异常")
             elif isinstance(constraints, Conjunctive):
-                pass
+                ans = True
+                for constr in constraints.constraints:
+                    # 这里后续需要优化，constr[0]是什么？ 不利于阅读，应该改成字典类型constr[‘type’]
+                    if constr[0] == "VarVar":
+                        var1Idx = int(constr[1][1:])
+                        relation = constr[2]
+                        var2Idx = int(constr[3][1:])
+                        if relation == "GT":
+                            if realOutputVar[var1Idx] - realOutputVar[var2Idx] < 0.000001:
+                                return True
+                        elif relation == "LT":
+                            if realOutputVar[var1Idx] > realOutputVar[var2Idx]:
+                                return True
+                        elif relation == "EQ":
+                            pass
+                        else:
+                            raise Exception("输出约束关系异常")
+                    elif constr[0] == "VarValue":
+                        varIdx = int(constr[1][1:])
+                        relation = constr[2]
+                        value = constr[3]
+                        if relation == "GT":
+                            if realOutputVar[varIdx] <= value:
+                                return True
+                        elif relation == "LT":
+                            if realOutputVar[varIdx] >= value:
+                                return True
+                        elif relation == "EQ":
+                            pass
+                        else:
+                            raise Exception("输出约束关系异常")
         elif self.spec.verifyType == "mnist":
             # 在mnist数据集里，这里是且约束，只要有一条反子约束不满足则是真实反例
             label = self.spec.label
             for i in range(self.lmodel.lmodels[-1].size):
-                if i != label and outputVar[i] - outputVar[label] >= -0.000001:
+                if i != label and outputVar[i] - outputVar[label] >= -0.000000001:
                     ans = False
                     break
                 else:

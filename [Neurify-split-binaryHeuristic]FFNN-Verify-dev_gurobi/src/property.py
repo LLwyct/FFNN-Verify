@@ -10,6 +10,34 @@ from ConstraintFormula import *
 0<= input[4] <= 1200
 '''
 
+input_mean_values = np.array([1.9791091e+04, 0.0, 0.0, 650.0, 600.0])
+input_ranges = np.array([60261.0, 6.28318530718, 6.28318530718, 1100.0, 1200.0])
+output_mean = 7.5188840201005975
+output_range = 373.94992
+
+def acas_normalise_input(values):
+    return (values - input_mean_values)/input_ranges
+
+
+def acas_denormalise_input(values):
+    return values * input_ranges + input_mean_values
+
+
+def acas_normalise_output(value):
+    return (value - output_mean) / output_range
+
+
+def acas_denormalise_output(value):
+    return value * output_range + output_mean
+
+
+def getNormaliseInput(property = 0) -> list:
+    return [
+        acas_normalise_input(np.array(acas_properties[property]["input_bounds"]["lower"])),
+        acas_normalise_input(np.array(acas_properties[property]["input_bounds"]["upper"]))
+    ]
+
+
 acas_properties: List[Dict] = [
     {},
     # 1: If the intruder is distant and is significantly slower than the ownship,
@@ -21,7 +49,14 @@ acas_properties: List[Dict] = [
         "input_bounds": {
             "lower": [55947.691, -3.141592, -3.141592, 1145, 0],
             "upper": [62000, 3.141592, 3.141592, 1200, 60]
-        }
+        },
+        "outputConstraints": [
+            Disjunctive (
+                [
+                    ("VarValue", "Y0", "LT", acas_normalise_output(1500)),
+                ]
+            )
+        ]
     },
 
     # 2: If the intruder is distant and significantly slower than the ownship,
@@ -35,7 +70,17 @@ acas_properties: List[Dict] = [
         "input_bounds": {
             "lower": [55947.691, -3.141592, -3.141592, 1145, 0],
             "upper": [62000, 3.141592, 3.141592, 1200, 60]
-        }
+        },
+        "outputConstraints": [
+            Disjunctive(
+                [
+                    ("VarVar", "Y0", "LT", "Y1"),
+                    ("VarVar", "Y0", "LT", "Y2"),
+                    ("VarVar", "Y0", "LT", "Y3"),
+                    ("VarVar", "Y0", "LT", "Y4"),
+                ]
+            )
+        ]
     },
 
     # 3: If the intruder is directly ahead and is moving towards the ownship,
@@ -68,7 +113,17 @@ acas_properties: List[Dict] = [
         "input_bounds": {
             "lower": [1500, -0.06, 0, 1000, 700],
             "upper": [1800, 0.06, 3.141592, 1200, 800]
-        }
+        },
+        "outputConstraints": [
+            Disjunctive (
+                [
+                    ("VarVar", "Y0", "GT", "Y1"),
+                    ("VarVar", "Y0", "GT", "Y2"),
+                    ("VarVar", "Y0", "GT", "Y3"),
+                    ("VarVar", "Y0", "GT", "Y4"),
+                ]
+            )
+        ]
     },
 
     # 5: If the intruder is near and approaching from the left,
@@ -96,29 +151,3 @@ acas_properties: List[Dict] = [
     },
 ]
 
-input_mean_values = np.array([1.9791091e+04, 0.0, 0.0, 650.0, 600.0])
-input_ranges = np.array([60261.0, 6.28318530718, 6.28318530718, 1100.0, 1200.0])
-output_mean = 7.5188840201005975
-output_range = 373.94992
-
-def acas_normalise_input(values):
-    return (values - input_mean_values)/input_ranges
-
-
-def acas_denormalise_input(values):
-    return values * input_ranges + input_mean_values
-
-
-def acas_normalise_output(value):
-    return (value - output_mean) / output_range
-
-
-def acas_denormalise_output(value):
-    return value * output_range + output_mean
-
-
-def getNormaliseInput(property = 0) -> list:
-    return [
-        acas_normalise_input(np.array(acas_properties[property]["input_bounds"]["lower"])),
-        acas_normalise_input(np.array(acas_properties[property]["input_bounds"]["upper"]))
-    ]
