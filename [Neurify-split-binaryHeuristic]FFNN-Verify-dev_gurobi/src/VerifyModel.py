@@ -46,18 +46,18 @@ class VerifyModel:
                 if layer.type == "relu":
                     notFixedNodesNum += layer.getNotFixedNodeNum()
             print("id: {}, notFixedNodesNum before potimise: {}".format(self.id, notFixedNodesNum))
-        triangleTime = timer()
-        for layer in self.lmodel.lmodels:
-            length = layer.size
-            average = 0
-            for i in range(length):
-                average += layer.var_bounds_in["ub"][i] - layer.var_bounds_in["lb"][i]
-            if layer.size > 10:
-                print("fixed node nums", layer.getFixedNodeNum())
-                average = average / length
-                print(average)
-        return True
-        pass
+        # triangleTime = timer()
+        # for layer in self.lmodel.lmodels:
+        #     length = layer.size
+        #     average = 0
+        #     for i in range(length):
+        #         average += layer.var_bounds_in["ub"][i] - layer.var_bounds_in["lb"][i]
+        #     if layer.size > 10:
+        #         print("fixed node nums", layer.getFixedNodeNum())
+        #         average = average / length
+        #         print(average)
+        # return True
+        # pass
         while True and GlobalSetting.use_bounds_opt is True:
             # 属于预处理的步骤，使用三角近似来优化边界，要在initAllBounds之后执行
             self.indexToVar = []

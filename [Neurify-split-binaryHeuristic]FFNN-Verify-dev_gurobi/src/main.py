@@ -50,32 +50,7 @@ if __name__ == '__main__':
             f.write("use bounds optimised?: {}\n".format(GlobalSetting.use_bounds_opt))
             f.write("use_binary_heuristic_method: {}\n".format(GlobalSetting.use_binary_heuristic_method))
             f.write("------------------------------------\n")
-    # times = []
-    # # for p in range(3, 4):
-    # #     if GlobalSetting.write_to_file:
-    # #         with open("result.log", "at") as f:
-    # #             f.write("check property: {}\n".format(p))
-    # #     for i in range(3, 4):
-    # #         for j in range(1, 10):
-    # #             time = main_for_run(i, j, p, "acas")
-    # #             times.append(time)
-    # # for i in range(9, 10):
-    # #     time = main_for_run(1, i, 1, "mnist")
-    # select = [
-    #     [1, 1],
-    #     [1, 2],
-    #     [2, 2],
-    #     [1, 4],
-    #     [2, 3],
-    #     [2, 4],
-    #     [1, 7],
-    #     [1, 8],
-    #     [3, 1],
-    #     [2, 1],
-    # ]
-    # for item in select:
-    #     main_for_run(item[0], item[1], 3, "acas")
-    main_for_run(1, 1, 3, "mnist")
+    main_for_run(1, 1, 3, "acas")
     if GlobalSetting.write_to_file:
         with open("result.log", "at") as f:
             f.write("average time: {:.2f}\n\n".format(sum(times) / len(times)))
